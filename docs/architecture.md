@@ -13,7 +13,7 @@
 
 ## 设计目标
 
-`@nobla/rest-ui` 的设计目标是让前端开发者能够以最低的成本构建完整的 CRUD 页面。理想情况下，只需指定 `module` 和 `table`，所有 UI 元素（搜索表单、数据表格、分页、创建/编辑弹窗）都能自动渲染。
+`@sjlit/rest-ui` 的设计目标是让前端开发者能够以最低的成本构建完整的 CRUD 页面。理想情况下，只需指定 `module` 和 `table`，所有 UI 元素（搜索表单、数据表格、分页、创建/编辑弹窗）都能自动渲染。
 
 同时，库也提供底层组件供需要完全控制数据流的场景使用。
 
@@ -291,7 +291,7 @@ interface Action {
 `CRUD` 类可以独立使用，也可以继承扩展：
 
 ```typescript
-import { CRUD } from '@nobla/rest-ui'
+import { CRUD } from '@sjlit/rest-ui'
 
 class CustomCRUD extends CRUD {
   async approveModel(model: Model) {

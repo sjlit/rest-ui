@@ -1,4 +1,4 @@
-# @nobla/rest-ui
+# @sjlit/rest-ui
 
 基于 REST Schema 定义的 Vue 3 + Element Plus 组件库，提供 schema 驱动的自动 CRUD 页面渲染能力。
 
@@ -32,7 +32,7 @@ ui/        -- UI 组件层（Element Plus 组件封装）
 ## 安装
 
 ```bash
-npm install @nobla/rest-ui
+npm install @sjlit/rest-ui
 ```
 
 ### Peer Dependencies
@@ -50,7 +50,7 @@ npm install vue@^3.3.0 element-plus@^2.12.0 @element-plus/icons-vue@^2.3.0
 ```typescript
 import { createApp } from 'vue'
 import ElementPlus from 'element-plus'
-import { SchemaUIPlugin } from '@nobla/rest-ui'
+import { SchemaUIPlugin } from '@sjlit/rest-ui'
 import axios from 'axios'
 import App from './App.vue'
 
@@ -100,7 +100,7 @@ app.mount('#app')
 </template>
 
 <script setup lang="ts">
-import { SchemaViewer } from '@nobla/rest-ui'
+import { SchemaViewer } from '@sjlit/rest-ui'
 </script>
 ```
 
@@ -121,8 +121,8 @@ import { SchemaViewer } from '@nobla/rest-ui'
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { SchemaPage } from '@nobla/rest-ui'
-import type { Schema, Model, Pagination } from '@nobla/rest-ui'
+import { SchemaPage } from '@sjlit/rest-ui'
+import type { Schema, Model, Pagination } from '@sjlit/rest-ui'
 
 const schemas = ref<Schema[]>([])
 const models = ref<Model[]>([])
@@ -183,7 +183,7 @@ loadSchemas()
 在组件或 composable 中获取全局配置：
 
 ```typescript
-import { useSchemaUI } from '@nobla/rest-ui'
+import { useSchemaUI } from '@sjlit/rest-ui'
 
 const config = useSchemaUI()
 // config.httpClient, config.i18n, config.hasPermission, ...
@@ -386,7 +386,7 @@ LiveTypeCascader   = 'cascader'
 场景数组的扩展类，提供便捷的 `has()` 方法。
 
 ```typescript
-import { Scenarios } from '@nobla/rest-ui'
+import { Scenarios } from '@sjlit/rest-ui'
 
 const scenarios = Scenarios.from('create;update;list')
 scenarios.has('create')  // true
@@ -398,7 +398,7 @@ scenarios.has('delete')  // false
 模型值的编码/解码函数，用于表单提交前后的数据转换。
 
 ```typescript
-import { encode, decode } from '@nobla/rest-ui'
+import { encode, decode } from '@sjlit/rest-ui'
 
 // encode: Date -> 格式字符串（YYYY-MM-DD HH:mm:ss）
 const submitModel = encode(model, schemas, 'create')
@@ -414,7 +414,7 @@ const formModel = decode(rawModel, schemas, 'create')
 ### getModelValue / getModelLabel
 
 ```typescript
-import { getModelValue, getModelLabel } from '@nobla/rest-ui'
+import { getModelValue, getModelLabel } from '@sjlit/rest-ui'
 
 const value = getModelValue(model, 'status')      // 获取原始值
 const label = getModelLabel(model, 'status')      // 获取显示标签（支持枚举映射）
@@ -425,7 +425,7 @@ const label = getModelLabel(model, 'status')      // 获取显示标签（支持
 根据 schema 生成 Element Plus 表单验证规则。
 
 ```typescript
-import { generateSchemaRule } from '@nobla/rest-ui'
+import { generateSchemaRule } from '@sjlit/rest-ui'
 
 const rules = generateSchemaRule(
   (key, args) => `${args[0]}不能为空`,  // 翻译函数
@@ -440,7 +440,7 @@ const rules = generateSchemaRule(
 检查字段在指定模型下是否可见（根据 `visible` 条件）。
 
 ```typescript
-import { checkSchemaVisible } from '@nobla/rest-ui'
+import { checkSchemaVisible } from '@sjlit/rest-ui'
 
 const isVisible = checkSchemaVisible(schema, model)
 ```
@@ -450,7 +450,7 @@ const isVisible = checkSchemaVisible(schema, model)
 清除搜索模型中的空值（`''`、`null`、`undefined`）。
 
 ```typescript
-import { clearSearchModel } from '@nobla/rest-ui'
+import { clearSearchModel } from '@sjlit/rest-ui'
 
 const cleanQuery = clearSearchModel(searchModel, schemas)
 ```
@@ -529,8 +529,8 @@ const cleanQuery = clearSearchModel(searchModel, schemas)
 </template>
 
 <script setup lang="ts">
-import { SchemaViewer } from '@nobla/rest-ui'
-import type { CRUD, Action } from '@nobla/rest-ui'
+import { SchemaViewer } from '@sjlit/rest-ui'
+import type { CRUD, Action } from '@sjlit/rest-ui'
 
 const customRowActions: Action[] = [
   {
@@ -817,8 +817,8 @@ Schema 加载 URI：
 
 ```vue
 <script setup lang="ts">
-import { SchemaViewer } from '@nobla/rest-ui'
-import type { Action } from '@nobla/rest-ui'
+import { SchemaViewer } from '@sjlit/rest-ui'
+import type { Action } from '@sjlit/rest-ui'
 
 const batchActions: Action[] = [
   {
@@ -887,8 +887,8 @@ const rowActions: Action[] = [
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { SchemaPage, CRUD } from '@nobla/rest-ui'
-import type { Schema, Model, Pagination, Action } from '@nobla/rest-ui'
+import { SchemaPage, CRUD } from '@sjlit/rest-ui'
+import type { Schema, Model, Pagination, Action } from '@sjlit/rest-ui'
 
 const schemas = ref<Schema[]>([])
 const models = ref<Model[]>([])
@@ -943,9 +943,9 @@ const rowActions: Action[] = [
 
 ```vue
 <script setup lang="ts">
-import { SchemaViewer } from '@nobla/rest-ui'
+import { SchemaViewer } from '@sjlit/rest-ui'
 import { onMounted, ref } from 'vue'
-import type { CRUD } from '@nobla/rest-ui'
+import type { CRUD } from '@sjlit/rest-ui'
 
 const viewerRef = ref<InstanceType<typeof SchemaViewer> | null>(null)
 
@@ -975,7 +975,7 @@ function onReady(crud: CRUD) {
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { SchemaViewer } from '@nobla/rest-ui'
+import { SchemaViewer } from '@sjlit/rest-ui'
 
 const currentModule = ref('user')
 const currentTable = ref('admin')
@@ -1089,7 +1089,7 @@ npm test       # 运行单元测试（node:test，无额外依赖）
 
 #### 方式一：Vite Alias 指向源码（推荐，支持热更新）
 
-在消费项目的 `vite.config.ts` 中配置路径别名，直接指向 `@nobla/rest-ui` 的源码入口：
+在消费项目的 `vite.config.ts` 中配置路径别名，直接指向 `@sjlit/rest-ui` 的源码入口：
 
 ```typescript
 import { defineConfig } from 'vite'
@@ -1098,7 +1098,7 @@ import { resolve } from 'path'
 export default defineConfig({
   resolve: {
     alias: {
-      '@nobla/rest-ui': resolve(__dirname, '/absolute/path/to/rest-ui/src/index.ts'),
+      '@sjlit/rest-ui': resolve(__dirname, '/absolute/path/to/rest-ui/src/index.ts'),
     },
   },
 })
@@ -1126,7 +1126,7 @@ npm install /absolute/path/to/rest-ui
 `package.json` 会自动添加：
 ```json
 "dependencies": {
-  "@nobla/rest-ui": "file:/absolute/path/to/rest-ui"
+  "@sjlit/rest-ui": "file:/absolute/path/to/rest-ui"
 }
 ```
 
@@ -1157,9 +1157,9 @@ npm run build  # 输出到 dist/ 目录
 单独引用样式（可选；组件样式默认已随 JS 自动注入）：
 
 ```typescript
-import '@nobla/rest-ui/style.css'
+import '@sjlit/rest-ui/style.css'
 // 或
-import '@nobla/rest-ui/dist/style.css'
+import '@sjlit/rest-ui/dist/style.css'
 ```
 
 ### 类型检查
@@ -1190,7 +1190,7 @@ import type {
   Sortable,
   CRUDOptions,
   SchemaUIConfig,
-} from '@nobla/rest-ui'
+} from '@sjlit/rest-ui'
 ```
 
 ---
