@@ -34,7 +34,12 @@
     "build": "vite build",
     "dev": "vite build --watch",
     "test": "node --test \"src/**/*.test.ts\"",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "release:patch": "npm version patch",
+    "release:minor": "npm version minor",
+    "release:major": "npm version major",
+    "release:beta": "npm version prerelease --preid=beta",
+    "push:tags": "git push --follow-tags"
   },
   "peerDependencies": {
     "@element-plus/icons-vue": "^2.3.0",

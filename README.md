@@ -1168,6 +1168,31 @@ import '@sjlit/rest-ui/dist/style.css'
 npm run typecheck  # 使用 vue-tsc
 ```
 
+### 发布流程
+
+本仓库通过 **GitHub Actions** 在打 tag 时自动发布到 npm。配置要求:
+
+- 仓库 Secret `NPM_TOKEN`(拥有 `@sjlit` 组织 publish 权限的 npm automation token)
+
+**正式版本**
+
+```bash
+npm run release:patch   # 1.0.1 → 1.0.2
+# 或 release:minor / release:major
+npm run push:tags       # 推送代码 + tag,自动触发发布
+```
+
+**预发布版本**
+
+```bash
+npm run release:beta    # 1.0.2 → 1.0.3-beta.0
+npm run push:tags       # 推送后自动以 --tag beta 发布
+```
+
+完整流水线(`install → typecheck → test → build → pack --dry-run → publish`)在
+`.github/workflows/publish.yml` 中定义,任何步骤失败都会阻止破损版本发布。
+也可以在 GitHub Actions 页面手动触发发版。
+
 ---
 
 ## 类型声明
