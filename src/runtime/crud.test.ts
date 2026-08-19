@@ -38,7 +38,7 @@ test('deleteModel 用解包后的主键构建删除 URI', async () => {
   })
   crud.primaryKey = 'id'
   await crud.deleteModel({ id: { label: '1', value: 1 } })
-  assert.deepEqual(calls, ['rest/user/admin/1'])
+  assert.deepEqual(calls, ['user/admin/1'])
 })
 
 test('__refreshModel 用解包后的主键原位替换行而不是追加重复行', async () => {

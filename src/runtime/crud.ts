@@ -208,7 +208,7 @@ export class CRUD {
     return this
   }
 
-  findModelPrimaryKey(model: Model): any {
+  findModelPrimaryKey(model: Model | string): any {
     if (model && typeof model === 'object') {
       const value = model[this.primaryKey]
       // 兼容后端 __format=both 返回的 { label, value } 单元格结构，解包取原始值
