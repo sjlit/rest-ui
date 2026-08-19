@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.3] - 2026-08-19
+
+### BREAKING CHANGES
+
+- `apiPrefix` 默认值从 `'rest'` 改为 `''`(空字符串)。消费方必须通过 `SchemaUIPlugin` 的 `apiPrefix` 配置,或在 `<SchemaViewer />` 组件 prop 上显式传入,否则请求 URL 将不再带 `/rest/` 前缀。
+
+  ```ts
+  // 之前:不传 apiPrefix → 请求会发到 /rest/...
+  app.use(SchemaUIPlugin, { httpClient })
+
+  // 之后:不传 apiPrefix → 请求会发到 /...;如需保留 /rest/ 前缀,显式传入:
+  app.use(SchemaUIPlugin, { httpClient, apiPrefix: 'rest' })
+  ```
+
+### Bug Fixes
+
+- 1.0.2 已修复 `CRUD` 类的默认值,但 `<SchemaViewer />` 组件内部 fallback 仍指向 `'rest'`,导致组件入口与类入口行为不一致。本次提交将两处 fallback 统一为空字符串。
+
+---
+
 ## [1.0.0] - 2026-05-17
 
 ### 初始版本
