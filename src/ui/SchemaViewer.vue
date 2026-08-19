@@ -180,7 +180,7 @@ async function init() {
   const instance = new CRUD({
     module: props.module,
     table: props.table,
-    apiPrefix: props.apiPrefix || globalConfig.apiPrefix || 'rest',
+    apiPrefix: props.apiPrefix || globalConfig.apiPrefix || '',
     httpClient: globalConfig.httpClient,
     schemas: props.config?.schemas,
   })
