@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.4] - 2026-08-19
+
+### Bug Fixes
+
+- 修复 `CRUD.initialize()` 在 `apiPrefix` 为空时构造出 `//schema/...` 这种 protocol-relative URL 的 bug。改为与 `__buildModelUri` 一致的条件拼接:空 `apiPrefix` 完全省略该段,而不是保留一个空槽。
+
+  影响:1.0.3 把 `apiPrefix` 默认值改成 `''` 之后,凡是依赖远程拉取 schema 的场景(未通过 `config.schemas` 预置),所有请求都会带 `//` 前缀。`httpClient` 如果是 `axios`,`axios.get('//schema/...')` 会被解析成 protocol-relative URL,可能被当作 host=`schema` 的跨主机请求而失败。
+
+  受影响版本:1.0.3。
+  修复版本:1.0.4。
+  行为对照:
+
+  | 配置 | 1.0.3 URI | 1.0.4 URI |
+  | --- | --- | --- |
+  | `apiPrefix: ''` | `//schema/{module}/{table}` | `/schema/{module}/{table}` |
+  | `apiPrefix: 'rest'` | `/rest/schema/{module}/{table}` | `/rest/schema/{module}/{table}` |
+
 ## [1.0.3] - 2026-08-19
 
 ### BREAKING CHANGES

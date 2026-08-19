@@ -91,9 +91,16 @@ export class CRUD {
       return this.schemas
     }
 
-    const uri = this.opts.module
-      ? `/${this.opts.apiPrefix}/schema/${this.opts.module}/${this.opts.table}`
-      : `/${this.opts.apiPrefix}/schema/${this.opts.table}`
+    const parts: string[] = []
+    if (this.opts.apiPrefix) {
+      parts.push(this.opts.apiPrefix)
+    }
+    parts.push('schema')
+    if (this.opts.module) {
+      parts.push(this.opts.module)
+    }
+    parts.push(this.opts.table)
+    const uri = '/' + parts.join('/')
 
     const res = await this.opts.httpClient.get(uri)
     const rawSchemas: Schema[] = Array.isArray(res) ? res : res.data || []

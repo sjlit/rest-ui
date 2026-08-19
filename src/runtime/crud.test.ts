@@ -63,3 +63,57 @@ test('__refreshModel 用解包后的主键原位替换行而不是追加重复�
   assert.equal(crud.models.length, 1)
   assert.equal(detailCalls, 1)
 })
+
+test('initialize 在空 apiPrefix 下不产生 // 前缀', async () => {
+  const calls: string[] = []
+  const crud = new CRUD({
+    module: 'user',
+    table: 'admin',
+    apiPrefix: '',
+    httpClient: {
+      ...noopHttp,
+      get: async (url: string) => {
+        calls.push(url)
+        return []
+      },
+    },
+  })
+  await crud.initialize()
+  assert.deepEqual(calls, ['/schema/user/admin'])
+})
+
+test('initialize 在非空 apiPrefix 下保留前缀', async () => {
+  const calls: string[] = []
+  const crud = new CRUD({
+    module: 'user',
+    table: 'admin',
+    apiPrefix: 'rest',
+    httpClient: {
+      ...noopHttp,
+      get: async (url: string) => {
+        calls.push(url)
+        return []
+      },
+    },
+  })
+  await crud.initialize()
+  assert.deepEqual(calls, ['/rest/schema/user/admin'])
+})
+
+test('initialize 在无 module 时 URI 仍正确', async () => {
+  const calls: string[] = []
+  const crud = new CRUD({
+    module: '',
+    table: 'profile',
+    apiPrefix: '',
+    httpClient: {
+      ...noopHttp,
+      get: async (url: string) => {
+        calls.push(url)
+        return []
+      },
+    },
+  })
+  await crud.initialize()
+  assert.deepEqual(calls, ['/schema/profile'])
+})
