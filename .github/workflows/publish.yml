@@ -1,0 +1,65 @@
+name: Publish @sjlit/rest-ui
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    # 允许在 Actions 页面手动触发（输入 version，如 1.0.2）
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # 启用 npm provenance（包从哪里构建可验证）
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Resolve version (manual trigger)
+        if: github.event_name == 'workflow_dispatch'
+        id: version
+        run: echo "VERSION=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version (manual trigger)
+        if: github.event_name == 'workflow_dispatch'
+        run: npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Inspect tarball
+        run: npm pack --dry-run
+
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # 手动触发：保留包名上的预发布标签（默认 latest；如 version 含 beta/rc 会自动用对应 dist-tag）
+            npm publish --provenance --tag ${NPM_TAG:-latest}
+          else
+            # tag 触发：正式版（v1.2.3）→ latest；预发布（v1.2.3-beta.0）→ 对应 dist-tag
+            TAG="${GITHUB_REF#refs/tags/v}"
+            if [[ "$TAG" == *-* ]]; then
+              # 例如 v1.2.3-beta.0 → beta
+              DIST_TAG="${TAG#*-}"; DIST_TAG="${DIST_TAG%%.*}"
+            else
+              DIST_TAG="latest"
+            fi
+            npm publish --provenance --tag "$DIST_TAG"
+          fi
