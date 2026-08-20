@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.0.5] - 2026-08-20
+
+### Bug Fixes
+
+- `codec.encode` 重写：补齐基础类型转换，UI 表单收集到的字符串 / 空值会按 `schema.type` 转成对应类型再提交。
+  - `integer` / `decimal` / `float` / `double`：字符串 → 数字；空字符串 / 非法值 → `0`。
+  - `boolean`：任意值 → `Boolean(v)`（注意：`Boolean('false') === true`，与上游 quor 行为对齐）。
+  - `string`：对象 → `JSON.stringify`；空值 → `''`。
+- `codec.decode` 重写：与 `encode` 对称，并补齐三类之前缺失的行为：
+  - 日期字段空值（`null` / `undefined` / `''`）现在写入空字符串 `''`，避免前端 `el-date-picker` 取不到字段导致报错。
+  - `time_search_range` 在 `search` 场景下按 `'day' | 'week' | 'month' | 'year'` 生成对应 startOf/endOf 默认值（endOf clamp 到当前时间），其他 search 字段空值兜底为 `''`。
+  - `create` 场景下 raw 没有的字段使用 `schema.attributes.default_value` 兜底。
+- 格式（`schema.format`）分支补齐：`cascader`（按 `live.columns` 拆列 / 合并）、`multiSelect`（`encode` JSON 序列化 / `decode` 解析为数组）、`date` / `datetime` / `timestamp` / `time` 的 daterange 数组（`'start/end'` 字符串 ↔ 数组）。
+- 新增 `src/core/codec.test.ts`（31 个用例）覆盖 `mustMarshal` 各类型、`encode` / `decode`、search 默认值、default_value 兜底、cascader / multiSelect / daterange、时间戳、空值、NaN、对称性等。
+
+  受影响版本：1.0.0 ~ 1.0.4。
+  修复版本：1.0.5。
+
+  行为对照（节选）：
+
+  | 场景 | 1.0.4 行为 | 1.0.5 行为 |
+  | --- | --- | --- |
+  | `integer` 字段 UI 提交 `'25'` | 提交 `'25'`（字符串） | 提交 `25`（数字） |
+  | `integer` 字段提交 `''` | 提交 `''` | 提交 `0` |
+  | `integer` 字段提交 `'abc'` | 提交 `'abc'` | 提交 `0` |
+  | `boolean` 字段提交 `'true'` | 提交 `'true'` | 提交 `true` |
+  | `date` 字段提交 `['2024-01-01','2024-01-31']` | 提交 `['2024-01-01','2024-01-31']` | 提交 `'2024-01-01/2024-01-31'` |
+  | `multiSelect` 字段提交 `[1,2,3]` | 提交 `[1,2,3]` | 提交 `'[1,2,3]'` |
+  | `create` 场景 `integer` 字段空 | 不写入 | 写入 `default_value` 转数字 |
+  | `search` 场景日期字段空 | `undefined` | `time_search_range` 默认对 |
+  | `decode` 日期字段空（`null` / 缺失） | 字段不存在于结果 | 字段为 `''` |
+
 ## [1.0.4] - 2026-08-19
 
 ### Bug Fixes
