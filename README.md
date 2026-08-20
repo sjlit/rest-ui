@@ -164,6 +164,96 @@ loadSchemas()
 
 ---
 
+## 按需引入 Element Plus（推荐）
+
+`rest-ui` 内部全部以 `<el-xxx>` 模板标签的形式使用 Element Plus，
+并未在自身代码里逐个 `import` 组件，因此可以无缝接入
+`unplugin-vue-components` + `ElementPlusResolver` —— **构建期自动按需
+引入、自动注入样式，无需 `app.use(ElementPlus)`、无需手动 import**。
+
+### 安装构建插件
+
+```bash
+npm install -D unplugin-auto-import unplugin-vue-components
+```
+
+### 配置 Vite
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+
+export default defineConfig({
+  plugins: [
+    AutoImport({ resolvers: [ElementPlusResolver()] }),
+    Components({ resolvers: [ElementPlusResolver()] }),
+  ],
+})
+```
+
+### 简化的应用入口
+
+采用按需引入后，**不再需要** `app.use(ElementPlus)` 与
+`import 'element-plus/dist/index.css'`：
+
+```typescript
+import { createApp } from 'vue'
+import { SchemaUIPlugin } from '@sjlit/rest-ui'
+import App from './App.vue'
+
+const app = createApp(App)
+app.use(SchemaUIPlugin, { httpClient: /* ... */ })
+app.mount('#app')
+```
+
+### 工作原理
+
+- 构建期，`unplugin-vue-components` 会扫描所有 `.vue` 模板
+  （包括 `rest-ui` 内部组件编译后的渲染函数）。
+- 遇到 `<el-button>` / `<el-form>` / `<el-table>` 等标签时，自动注入
+  对应的 `import { ElButton } from 'element-plus'` 及其 CSS。
+- `rest-ui` 中唯一的命令式 API `ElMessageBox.confirm`（位于
+  `SchemaViewer.vue`）由 `unplugin-auto-import` + `ElementPlusResolver`
+  自动捕获，**无需手动处理**。
+- 最终 bundle 中**只包含项目实际使用到的 Element Plus 组件**，
+  一般可从全量 ~300KB gzip 压到 ~100KB gzip 左右。
+
+### 关于 CSS 变量
+
+`rest-ui` 的样式里大量使用 `var(--el-color-primary, #409eff)` 等
+Element Plus 全局变量。按需引入时，每个被加载的组件都会把它对应的
+CSS 变量注入到 `:root`，因此变量值会自动可用。**请勿**额外
+`import 'element-plus/dist/index.css'`，否则会回到全量样式，
+抵消按需引入的收益。
+
+### Webpack / Vue CLI 用户
+
+```javascript
+// vue.config.js 或 webpack.config.js
+const { ElementPlusResolver } = require('unplugin-vue-components/resolvers')
+const AutoImport = require('unplugin-auto-import/webpack').default
+const Components = require('unplugin-vue-components/webpack').default
+
+module.exports = {
+  // ...
+  plugins: [
+    AutoImport({ resolvers: [ElementPlusResolver()] }),
+    Components({ resolvers: [ElementPlusResolver()] }),
+  ],
+}
+```
+
+### 不使用构建插件？
+
+若工程无法引入上述构建插件，仍可保持「快速开始」里的
+`app.use(ElementPlus)` 全量加载方式，所有功能均正常工作，
+只是 bundle 体积更大、不会按需打包。
+
+---
+
 ## 配置系统
 
 ### SchemaUIConfig
