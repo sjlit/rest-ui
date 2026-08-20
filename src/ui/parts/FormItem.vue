@@ -163,6 +163,7 @@
 import { computed, ref, watch } from 'vue'
 import type { Schema, Scenario } from '../../core/types'
 import { createDefaultTranslator } from '../../core/i18n'
+import { resolveComponentType } from '../../core/componentType'
 
 interface Props {
   modelValue: any
@@ -246,24 +247,5 @@ function disabledDate(time: Date) {
   return time.getTime() > today.getTime()
 }
 
-const componentType = computed(() => {
-  const fmt = props.schema.format
-  const tp = props.schema.type
-
-  if (['integer', 'float', 'decimal'].includes(fmt) || ['integer', 'float', 'double'].includes(tp)) {
-    return 'number'
-  }
-  if (['password', 'pass'].includes(fmt)) return 'password'
-  if (fmt === 'time') return 'time'
-  if (fmt === 'date') return 'date'
-  if (['datetime', 'timestamp'].includes(fmt)) return 'datetime'
-  if (['dropdown', 'multiSelect'].includes(fmt)) return 'dropdown'
-  if (fmt === 'cascader') return 'cascader'
-  if (['bool', 'boolean'].includes(fmt)) {
-    return isSearch.value ? 'search_boolean' : 'boolean'
-  }
-  if (fmt === 'file' && !!props.schema.attributes.upload_url) return 'file'
-  if (!isSearch.value && fmt === 'text') return 'multistr'
-  return 'text'
-})
+const componentType = computed(() => resolveComponentType(props.schema, scenario.value))
 </script>
