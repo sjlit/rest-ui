@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.7] - 2026-08-20
+
+### Chores
+
+- 构建产物开启 sourcemap（`vite.config.ts` 中 `build.sourcemap = true`），现在发布的 `rest-ui.es.js` / `rest-ui.cjs` 旁会附带 `*.js.map` 文件。前端调试组件库时浏览器 DevTools 会自动加载原 `src/*.ts` 源码，断点和调用栈可直接对应到仓库源码而非压缩后的产物。
+
+  注：体积影响约 `rest-ui.es.js.map 158 kB`、`rest-ui.cjs.map 152 kB`，已在 GitHub Actions 的 `npm pack --dry-run` 步骤可见。如不需要可自行在 `package.json#files` 中加 `"!**/*.map"` 排除。
+
 ## [1.0.5] - 2026-08-20
 
 ### Bug Fixes
