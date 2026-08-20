@@ -102,11 +102,45 @@ test('encode datetime 单值 → "YYYY-MM-DD HH:mm:ss"', () => {
 test('encode multiSelect 数组 → JSON 字符串', () => {
   const schemas = [schema({ column: 'tags', type: 'string', format: 'multiSelect' })]
   const result = encode({ tags: [1, 2, 3] }, schemas, 'create')
-  assert.equal(result.tags, '[1,2,3]')
+  // 修复后逐元素按 schema.type 规整:type=string 下每个数字都 String() 化,
+  // 输出与 type=integer 路径下产生的元素形态一致,后端只需按 JSON 解析即可。
+  assert.equal(result.tags, '["1","2","3"]')
 })
 
-test('encode multiSelect 空数组 → 不写入', () => {
+test('encode multiSelect + type=integer 数组 → JSON 数字数组字符串（修复 parseInt(JSON)→0 的 bug）', () => {
+  const schemas = [schema({ column: 'tags', type: 'integer', format: 'multiSelect' })]
+  const result = encode({ tags: [1, 2, 3] }, schemas, 'create')
+  assert.equal(result.tags, '[1,2,3]')
+  assert.notEqual(result.tags, 0) // 修复前的错误结果
+})
+
+test('encode multiSelect + type=float 数组 → JSON 浮点数组字符串', () => {
+  const schemas = [schema({ column: 'tags', type: 'float', format: 'multiSelect' })]
+  const result = encode({ tags: [1.5, 2.5] }, schemas, 'create')
+  assert.equal(result.tags, '[1.5,2.5]')
+})
+
+test('encode multiSelect + type=boolean 数组 → JSON 布尔数组字符串', () => {
+  const schemas = [schema({ column: 'flags', type: 'boolean', format: 'multiSelect' })]
+  const result = encode({ flags: [true, false] }, schemas, 'create')
+  assert.equal(result.flags, '[true,false]')
+})
+
+test('encode multiSelect + type=string 数组（基线，行为不变）', () => {
   const schemas = [schema({ column: 'tags', type: 'string', format: 'multiSelect' })]
+  const result = encode({ tags: ['a', 'b'] }, schemas, 'create')
+  assert.equal(result.tags, '["a","b"]')
+})
+
+test('encode multiSelect 混类型元素 + type=integer → 逐元素规整', () => {
+  const schemas = [schema({ column: 'tags', type: 'integer', format: 'multiSelect' })]
+  // "2" 经 parseInt → 2；true 经 parseInt(String(true)) → NaN → 0
+  const result = encode({ tags: [1, '2', true] }, schemas, 'create')
+  assert.equal(result.tags, '[1,2,0]')
+})
+
+test('encode multiSelect + type=integer 空数组 → 不写入（回归保护）', () => {
+  const schemas = [schema({ column: 'tags', type: 'integer', format: 'multiSelect' })]
   const result = encode({ tags: [] }, schemas, 'create')
   assert.equal('tags' in result, false)
 })
@@ -203,6 +237,12 @@ test('decode multiSelect 非法 JSON → 不写入', () => {
   const schemas = [schema({ column: 'tags', type: 'string', format: 'multiSelect' })]
   const result = decode({ tags: 'not-json' }, schemas, 'update')
   assert.equal('tags' in result, false)
+})
+
+test('decode multiSelect 后端直接返回数组 → 透传', () => {
+  const schemas = [schema({ column: 'tags', type: 'integer', format: 'multiSelect' })]
+  const result = decode({ tags: [1, 2, 3] }, schemas, 'update')
+  assert.deepEqual(result.tags, [1, 2, 3])
 })
 
 test('decode cascader live.columns → 数组', () => {

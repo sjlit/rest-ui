@@ -148,8 +148,12 @@ export function encode(raw: Model, schemas: Schema[], scenario: Scenario): Model
     if (schema.format === 'multiSelect') {
       const v = raw[schema.column]
       if (Array.isArray(v) && v.length > 0) {
-        // 非搜索场景：JSON 序列化
-        data[schema.column] = mustMarshal(JSON.stringify(v), schema.type)
+        // 逐元素按 schema.type 规整后再 JSON 序列化：
+        // mustMarshal 设计目标是对单值做类型规整，直接套到 JSON 字符串上会让
+        // type=integer/float/boolean 走 parseInt/parseFloat/Boolean 触发 NaN → 0，
+        // 整组多选值被静默丢弃。逐元素规整保留类型安全网，又不影响正常 type=string 场景。
+        const normalized = v.map((x) => mustMarshal(x, schema.type))
+        data[schema.column] = JSON.stringify(normalized)
       }
       continue
     }
@@ -248,7 +252,10 @@ export function decode(raw: Model, schemas: Schema[], scenario: Scenario): Model
     // multiSelect 数组
     if (schema.format === 'multiSelect') {
       const v = raw[schema.column]
-      if (typeof v === 'string' && v !== '') {
+      if (Array.isArray(v)) {
+        // 后端直接返回数组的场景：透传
+        data[schema.column] = v
+      } else if (typeof v === 'string' && v !== '') {
         try {
           data[schema.column] = JSON.parse(v)
         } catch {
