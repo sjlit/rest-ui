@@ -265,7 +265,12 @@ async function handleEdit(model: Model) {
   try {
     const pk = crud.value!.findModelPrimaryKey(model)
     if (pk !== undefined && pk !== null && pk !== '') {
-      const detail = await crud.value!.getModel(String(pk))
+      // Pass scenario='update' so the backend returns fields aligned with the update form,
+      // matching the pattern used by __refreshModel in CRUD.
+      const detail = await crud.value!.getModel({
+        [crud.value!.primaryKey]: pk,
+        scenario: 'update',
+      })
       schemaPageRef.value?.openEdit(detail)
     } else {
       schemaPageRef.value?.openEdit(model)
