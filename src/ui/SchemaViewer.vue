@@ -53,10 +53,10 @@ interface Props {
   showPagination?: boolean
   readonly?: boolean
   autoFetch?: boolean
-  rowActions?: ActionType[]
-  batchActions?: ActionType[]
-  formActions?: ActionType[]
-  searchActions?: ActionType[]
+  rowActions?: (string | ActionType)[]
+  batchActions?: (string | ActionType)[]
+  formActions?: (string | ActionType)[]
+  searchActions?: (string | ActionType)[]
   defaultSort?: string
   presetQuery?: Record<string, any>
   gridProps?: Record<string, any>
@@ -99,6 +99,128 @@ const searching = ref(false)
 const isReady = ref(false)
 const schemaPageRef = ref<any>(null)
 
+interface ActionDefaults {
+  list: ActionType[]
+  lookup: Record<string, ActionType>
+}
+
+/**
+ * 解析 action 配置：
+ * - input 为空 → 根据 autoIncludeDefaults 决定是否返回底板默认
+ * - 字符串：若命中底板默认则视为「使用该默认」（幂等）；未命中静默跳过
+ * - ActionType：名字命中底板则替换默认；否则按用户传入顺序追加在底板之后
+ * - 同一 name 出现多次：后者覆盖前者
+ */
+function resolveActions(
+  input: (string | ActionType)[],
+  defaults: ActionType[],
+  lookup: Record<string, ActionType>,
+  autoIncludeDefaults: boolean,
+): ActionType[] {
+  if (input.length === 0) {
+    return autoIncludeDefaults ? [...defaults] : []
+  }
+
+  const overrides = new Map<string, ActionType>()
+  const newActions: ActionType[] = []
+
+  for (const item of input) {
+    if (typeof item === 'string') continue
+    if (overrides.has(item.name)) {
+      const idx = newActions.indexOf(overrides.get(item.name)!)
+      if (idx >= 0) newActions[idx] = item
+      overrides.set(item.name, item)
+    } else if (lookup[item.name]) {
+      overrides.set(item.name, item)
+    } else {
+      overrides.set(item.name, item)
+      newActions.push(item)
+    }
+  }
+
+  const result: ActionType[] = []
+  if (autoIncludeDefaults) {
+    for (const def of defaults) {
+      result.push(overrides.get(def.name) ?? def)
+    }
+  } else {
+    for (const def of defaults) {
+      if (overrides.has(def.name)) {
+        result.push(overrides.get(def.name)!)
+      }
+    }
+  }
+  for (const action of newActions) {
+    if (!result.some((r) => r.name === action.name)) {
+      result.push(action)
+    }
+  }
+  return result
+}
+
+function buildRowDefaults(): ActionDefaults {
+  const view: ActionType = {
+    name: 'view',
+    label: t('action.view'),
+    icon: View,
+    type: 'info',
+    asyncCallback: async (model) => handleView(model),
+  }
+  const edit: ActionType = {
+    name: 'edit',
+    label: t('action.edit'),
+    icon: EditPen,
+    type: 'success',
+    asyncCallback: async (model) => handleEdit(model),
+  }
+  const del: ActionType = {
+    name: 'delete',
+    label: t('action.delete'),
+    icon: Delete,
+    type: 'danger',
+    callback: (model) => handleDelete(model),
+  }
+  return {
+    list: [view, edit, del],
+    lookup: { view, edit, delete: del },
+  }
+}
+
+function buildBatchDefaults(): ActionDefaults {
+  const exp: ActionType = {
+    name: 'export',
+    label: t('action.export'),
+    callback: () => {
+      crud.value!.exportModels().catch((e) => console.error('Export failed:', e))
+    },
+  }
+  return {
+    list: [exp],
+    lookup: { export: exp },
+  }
+}
+
+function buildSearchDefaults(): ActionDefaults {
+  const search: ActionType = {
+    name: 'search',
+    label: t('action.search'),
+    type: 'primary',
+    asyncCallback: async (model, schemas) => {
+      searching.value = true
+      try {
+        crud.value!.resetPagination().setQueryParams(clearSearchModel(model, schemas || []))
+        await crud.value!.searchModel()
+      } finally {
+        searching.value = false
+      }
+    },
+  }
+  return {
+    list: [search],
+    lookup: { search },
+  }
+}
+
 const pagination = computed(() => {
   if (!crud.value) return { index: 1, size: 15, totalCount: 0 }
   return {
@@ -109,71 +231,24 @@ const pagination = computed(() => {
 })
 
 const searchActionList = computed((): ActionType[] => {
-  if (props.searchActions.length > 0) return props.searchActions
-  return [
-    {
-      name: 'search',
-      label: t('action.search'),
-      type: 'primary',
-      asyncCallback: async (model, schemas) => {
-        searching.value = true
-        try {
-          crud.value!.resetPagination().setQueryParams(clearSearchModel(model, schemas || []))
-          await crud.value!.searchModel()
-        } finally {
-          searching.value = false
-        }
-      },
-    },
-  ]
+  const { list, lookup } = buildSearchDefaults()
+  return resolveActions(props.searchActions, list, lookup, true)
 })
 
 const rowActionList = computed((): ActionType[] => {
-  if (props.readonly) return []
-  if (props.rowActions.length > 0) return props.rowActions
-  return [
-    {
-      name: 'view',
-      label: t('action.view'),
-      icon: View,
-      type: 'info',
-      asyncCallback: async (model) => handleView(model),
-    },
-    {
-      name: 'edit',
-      label: t('action.edit'),
-      icon: EditPen,
-      type: 'success',
-      asyncCallback: async (model) => handleEdit(model),
-    },
-    {
-      name: 'delete',
-      label: t('action.delete'),
-      icon: Delete,
-      type: 'danger',
-      callback: (model) => handleDelete(model),
-    },
-  ]
+  const { list, lookup } = buildRowDefaults()
+  return resolveActions(props.rowActions, list, lookup, !props.readonly)
 })
 
 const batchActionList = computed((): ActionType[] => {
-  if (props.batchActions.length > 0) return props.batchActions
-  const defaults: ActionType[] = []
-  defaults.push({
-    name: 'export',
-    label: t('action.export'),
-    callback: () => {
-      crud.value!.exportModels().catch((e) => console.error('Export failed:', e))
-    },
-  })
-  return defaults
+  const { list, lookup } = buildBatchDefaults()
+  return resolveActions(props.batchActions, list, lookup, true)
 })
 
 const formActionList = computed((): ActionType[] => {
-  // Pass through user-provided formActions only.
-  // When empty, SchemaPage uses its built-in save action which emits
-  // 'formSubmit' — handled by handleFormSubmit below.
-  return props.formActions
+  // formActions 没有内建默认；字符串无法命中默认会被过滤，ActionType 原样保留。
+  // 当为空时，SchemaPage 使用其内置的 save 动作并发出 'formSubmit' 事件。
+  return resolveActions(props.formActions, [], {}, true)
 })
 
 async function init() {
