@@ -65,6 +65,7 @@
       v-model="columnValue"
       :multiple="isMultiSelect"
       :disabled="isDisabled || isReadonly"
+      :empty-values="emptyValues"
       :placeholder="placeholder"
       :allow-create="schema.attributes.dropdown?.created"
       :filterable="schema.attributes.dropdown?.filterable"
@@ -221,6 +222,11 @@ const isMultiSelect = computed(() => {
   if (props.schema.attributes.dropdown?.multiple) return true
   return false
 })
+
+// 整型字段经 decode 兜底后空值是 0,默认 empty-values 不含 0,
+// el-select 会把 0 当成已选值直接显示而不是 placeholder。这里把 0
+// 并入空值判定(保留 EP 默认的 ''/undefined/null),让下拉正常显示占位文案。
+const emptyValues = [0, '', undefined, null]
 
 const isRange = computed(() => isSearch.value)
 
