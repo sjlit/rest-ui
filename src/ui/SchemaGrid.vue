@@ -59,6 +59,7 @@ import { filterByScenario } from '../core/form'
 import Cell from './parts/Cell.vue'
 import Action from './parts/Action.vue'
 import '../styles/grid.scss'
+import { getModelLabel } from '../core/model'
 
 interface Props {
   size?: ComponentSize
@@ -114,11 +115,11 @@ const visibleSchemas = computed(() => filterByScenario(props.schemas, props.scen
 function getMobilePrimaryLabel(model: Model): string {
   const pkSchema = props.schemas.find((s) => s.primary_key === 1)
   if (pkSchema) {
-    const val = model[pkSchema.column]
+    const val = getModelLabel(model, pkSchema.column)
     return val !== undefined && val !== null ? String(val) : ''
   }
   const firstKey = Object.keys(model)[0]
-  return firstKey !== undefined ? String(model[firstKey]) : ''
+  return firstKey !== undefined ? String(getModelLabel(model, firstKey)) : ''
 }
 
 function handleActionClick(action: ActionType, model: Model, loading: any) {
