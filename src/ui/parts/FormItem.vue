@@ -165,8 +165,7 @@ import ElButton from 'element-plus/es/components/button/index.mjs'
 import ElCascader from 'element-plus/es/components/cascader/index.mjs'
 import ElDatePicker from 'element-plus/es/components/date-picker/index.mjs'
 import ElInput from 'element-plus/es/components/input/index.mjs'
-import ElOption from 'element-plus/es/components/select/index.mjs' // ElOption 与 ElSelect 同源
-import ElSelect from 'element-plus/es/components/select/index.mjs'
+import { ElOption, ElSelect } from 'element-plus/es/components/select/index.mjs' // ElOption 与 ElSelect 同源 export
 import ElSwitch from 'element-plus/es/components/switch/index.mjs'
 import ElTimeSelect from 'element-plus/es/components/time-select/index.mjs'
 import ElUpload from 'element-plus/es/components/upload/index.mjs'
