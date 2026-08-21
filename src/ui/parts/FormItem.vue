@@ -88,7 +88,7 @@
   <template v-else-if="componentType === 'cascader'">
     <el-cascader
       v-model="columnValue"
-      :options="schema.attributes.values"
+      :options="cascaderOptions"
       :disabled="isDisabled || isReadonly"
       filterable
       clearable
@@ -161,6 +161,18 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import {
+  ElButton,
+  ElCascader,
+  ElDatePicker,
+  ElInput,
+  ElOption,
+  ElSelect,
+  ElSwitch,
+  ElTimeSelect,
+  ElUpload,
+} from 'element-plus'
+import type { CascaderOption } from 'element-plus'
 import type { Schema, Scenario } from '../../core/types'
 import { createDefaultTranslator } from '../../core/i18n'
 import { resolveComponentType } from '../../core/componentType'
@@ -248,4 +260,11 @@ function disabledDate(time: Date) {
 }
 
 const componentType = computed(() => resolveComponentType(props.schema, scenario.value))
+
+// schema.attributes.values 是 rest-ui 内部的 EnumValue(label + value),结构上已满足
+// ElCascader 的 CascaderOption(label + value + 可选 children)。组件 prop 要求严格类型,
+// 在此显式断言以便通过类型检查;若未来需要 children 嵌套,这里再补一个递归转换。
+const cascaderOptions = computed<CascaderOption[]>(
+  () => (props.schema.attributes.values ?? []) as unknown as CascaderOption[],
+)
 </script>

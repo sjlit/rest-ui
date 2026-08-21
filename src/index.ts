@@ -22,6 +22,9 @@ export type {
   Sortable,
   CRUDOptions,
 } from './core/types'
+// 透传 element-plus 的尺寸 / 按钮类型联合,供 Action.type / Action.size / SchemaGrid.size 等 prop 用。
+// 从 '@sjlit/rest-ui' 一处取,避免消费方被迫多引一个 element-plus 依赖。
+export type { ButtonType, ComponentSize } from './core/types'
 
 // === Core Constants ===
 export {

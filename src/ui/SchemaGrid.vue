@@ -51,14 +51,15 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import type { Schema, Model, Action as ActionType, Scenario } from '../core/types'
+import { ElCollapse, ElCollapseItem, ElEmpty, ElTable, ElTableColumn } from 'element-plus'
+import type { Schema, Model, Action as ActionType, Scenario, ComponentSize } from '../core/types'
 import { filterByScenario } from '../core/form'
 import Cell from './parts/Cell.vue'
 import Action from './parts/Action.vue'
 import '../styles/grid.scss'
 
 interface Props {
-  size?: string
+  size?: ComponentSize
   schemas: Schema[]
   scenario?: Scenario
   selection?: boolean

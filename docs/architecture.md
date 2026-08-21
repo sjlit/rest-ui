@@ -277,14 +277,19 @@ const apiPrefix = props.apiPrefix || globalConfig.apiPrefix || 'rest'
 interface Action {
   name: string
   label: string
-  type?: string
+  type?: ButtonType     // primary | success | danger | warning | info | default
   icon?: string
+  round?: boolean
+  size?: ComponentSize  // large | default | small
   permission?: string
   hidden?: boolean | ((model: Model) => boolean | Promise<boolean>)
   callback?: (model: Model, schemas?: Schema[], loading?: any) => void
   asyncCallback?: (model: Model, schemas?: Schema[], action?: Action) => Promise<void>
 }
 ```
+
+`ButtonType` / `ComponentSize` 是从 `element-plus` 透传的联合类型,可通过
+`@sjlit/rest-ui` 直接 import,无需单独依赖 `element-plus` 的类型定义。
 
 ### 3. CRUD 类扩展
 

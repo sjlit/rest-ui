@@ -164,20 +164,44 @@ loadSchemas()
 
 ---
 
-## 按需引入 Element Plus（推荐）
+## 引入 Element Plus
 
-`rest-ui` 内部全部以 `<el-xxx>` 模板标签的形式使用 Element Plus，
-并未在自身代码里逐个 `import` 组件，因此可以无缝接入
-`unplugin-vue-components` + `ElementPlusResolver` —— **构建期自动按需
-引入、自动注入样式，无需 `app.use(ElementPlus)`、无需手动 import**。
+`rest-ui` 内部已经**显式 `import`** 了所有用到的 Element Plus 组件
+（参见 `src/ui/SchemaPage.vue` / `SchemaGrid.vue` / `SchemaForm.vue` /
+`parts/Action.vue` / `parts/Cell.vue` / `parts/FormItem.vue` 顶部的
+`import { ... } from 'element-plus'`），不需要依赖消费方的 `app.use`
+或构建插件解析模板，**任何引入方式都能正常工作**。
 
-### 安装构建插件
+`SchemaViewer.vue` 里的命令式 API `ElMessageBox.confirm` 也已经
+显式 import。下面分三种使用方式说明。
+
+### 方式一：全量 `app.use(ElementPlus)`（最省事）
+
+```typescript
+import { createApp } from 'vue'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import { SchemaUIPlugin } from '@sjlit/rest-ui'
+import App from './App.vue'
+
+const app = createApp(App)
+app.use(ElementPlus)
+app.use(SchemaUIPlugin, { httpClient: /* ... */ })
+app.mount('#app')
+```
+
+`rest-ui` 内部对每个组件用的是局部 import（Vue 3 `<script setup>`
+会优先匹配局部），不会和全局注册产生冲突，也不会出现重复注册告警。
+
+### 方式二：按需引入（推荐用于 bundle 体积敏感场景）
+
+通过 `unplugin-vue-components` 让消费方自己写的 `<el-xxx>` 标签也能
+自动 import；`rest-ui` 内部已经 import 的组件会由打包器自动 tree-shake
+去掉重复 import，**无需额外配置**。
 
 ```bash
 npm install -D unplugin-auto-import unplugin-vue-components
 ```
-
-### 配置 Vite
 
 ```typescript
 // vite.config.ts
@@ -194,8 +218,6 @@ export default defineConfig({
 })
 ```
 
-### 简化的应用入口
-
 采用按需引入后，**不再需要** `app.use(ElementPlus)` 与
 `import 'element-plus/dist/index.css'`：
 
@@ -209,23 +231,11 @@ app.use(SchemaUIPlugin, { httpClient: /* ... */ })
 app.mount('#app')
 ```
 
-### 工作原理
-
-- 构建期，`unplugin-vue-components` 会扫描所有 `.vue` 模板
-  （包括 `rest-ui` 内部组件编译后的渲染函数）。
-- 遇到 `<el-button>` / `<el-form>` / `<el-table>` 等标签时，自动注入
-  对应的 `import { ElButton } from 'element-plus'` 及其 CSS。
-- `rest-ui` 中唯一的命令式 API `ElMessageBox.confirm`（位于
-  `SchemaViewer.vue`）由 `unplugin-auto-import` + `ElementPlusResolver`
-  自动捕获，**无需手动处理**。
-- 最终 bundle 中**只包含项目实际使用到的 Element Plus 组件**，
-  一般可从全量 ~300KB gzip 压到 ~100KB gzip 左右。
-
 ### 关于 CSS 变量
 
 `rest-ui` 的样式里大量使用 `var(--el-color-primary, #409eff)` 等
-Element Plus 全局变量。按需引入时，每个被加载的组件都会把它对应的
-CSS 变量注入到 `:root`，因此变量值会自动可用。**请勿**额外
+Element Plus 全局变量。采用按需引入时，每个被加载的组件都会把它
+对应的 CSS 变量注入到 `:root`，因此变量值会自动可用。**请勿**额外
 `import 'element-plus/dist/index.css'`，否则会回到全量样式，
 抵消按需引入的收益。
 
@@ -246,11 +256,14 @@ module.exports = {
 }
 ```
 
-### 不使用构建插件？
+### 哪种方式选哪个？
 
-若工程无法引入上述构建插件，仍可保持「快速开始」里的
-`app.use(ElementPlus)` 全量加载方式，所有功能均正常工作，
-只是 bundle 体积更大、不会按需打包。
+| 场景 | 推荐 |
+|------|------|
+| 内部管理系统、原型验证、不在意体积 | 方式一（最省事） |
+| 面向 C 端、bundle 体积敏感 | 方式二（按需） |
+| 已有 `unplugin-vue-components` 配置 | 方式二（无需为 `rest-ui` 特殊处理） |
+| 单元测试 / Storybook / 脱离 `app.use` | 方式一 or 方式二都可以，库内已经包含全部依赖 |
 
 ---
 
@@ -364,10 +377,10 @@ interface SchemaAttribute {
 interface Action {
   name: string
   label: string
-  type?: string         // Element Plus 按钮类型：primary | success | danger | warning | info
+  type?: ButtonType     // Element Plus 按钮类型：primary | success | danger | warning | info | default
   icon?: string
   round?: boolean
-  size?: string
+  size?: ComponentSize  // Element Plus 尺寸：large | default | small
   permission?: string   // 所需权限标识
   selection?: boolean   // 预留字段，当前未生效
   hidden?: boolean | ((model: Model) => boolean | Promise<boolean>)
@@ -375,6 +388,9 @@ interface Action {
   asyncCallback?: (model: Model, schemas?: Schema[], action?: Action) => Promise<void>
 }
 ```
+
+`ButtonType` / `ComponentSize` 是从 `element-plus` 透传的类型联合，可从
+`@sjlit/rest-ui` 一处取到，无须再单独 `import` `element-plus` 拿类型。
 
 ### Model
 
@@ -716,7 +732,7 @@ function onReady(crud: CRUD) {
 | `schemas` | `Schema[]` | - | Schema 定义数组 |
 | `models` | `Model[]` | - | 数据列表 |
 | `scenario` | `string` | `'list'` | 场景 |
-| `size` | `string` | - | 预留字段，当前未生效 |
+| `size` | `ComponentSize` | - | `el-table` 尺寸：`large` \| `default` \| `small` |
 | `selection` | `boolean` | `true` | 是否显示多选列 |
 | `actions` | `Action[]` | `[]` | 行操作按钮 |
 | `gridProps` | `Record<string, any>` | `{}` | 传递给 `el-table` 的属性 |
@@ -1305,6 +1321,9 @@ import type {
   Sortable,
   CRUDOptions,
   SchemaUIConfig,
+  // 从 element-plus 透传的联合类型
+  ButtonType,
+  ComponentSize,
 } from '@sjlit/rest-ui'
 ```
 

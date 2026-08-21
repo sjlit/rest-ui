@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Refactor
+
+- UI 层 (`SchemaPage.vue` / `SchemaGrid.vue` / `SchemaForm.vue` / `Action.vue` / `Cell.vue` / `FormItem.vue`) 改为**显式** `import { ... } from 'element-plus'`,覆盖 27 个 `<el-*>` 模板标签 + `v-loading` 指令 + `ElMessageBox` 命令式 API。库内不再依赖消费方 `app.use(ElementPlus)` 或构建插件解析模板,任何引入方式都能正常工作。
+- `Action.type` / `Action.size` 的类型由 `string` 改为从 `element-plus` 透传的 `ButtonType` / `ComponentSize` 联合,IDE 提示和编译时校验更精确。
+- `SchemaGrid.size` 改为 `ComponentSize`,与 `<el-table :size="size">` 严格对齐。
+- `core/types.ts` 透传 `ButtonType` / `ComponentSize`,并在 `src/index.ts` 公开导出,让下游可从 `@sjlit/rest-ui` 一处取到 EP 类型,避免散落。`FormItem.vue` 中 `<el-cascader :options>` 用 `CascaderOption` 显式断言替换原本的 `any`,消除一处隐式类型。
+- 文档同步:
+  - `README.md` 重写"引入 Element Plus"章节,说明显式 import 后方式一（全量注册）和方式二（unplugin-vue-components 按需）均可用,并给出选型表。
+  - `Action` / `SchemaGrid.size` 类型说明更新,公开类型清单加入 `ButtonType` / `ComponentSize`。
+  - `docs/architecture.md` 中 Action 样例同步。
+
+### 兼容性
+
+- 库 bundle 体积:新打的 `rest-ui.es.js` 体积略增(27 个 EP 组件的引用),但来源单一,消费者端的 tree-shake 不会重复打包,实际体积与之前一致。
+- 公开 API:无破坏性变更,`Action` / `SchemaGrid` 的 prop 收紧为 EP 联合类型,若消费方传字符串字面量(`'primary'`、`'default'` 等)仍合法,只有传非 EP 联合的字符串才报错。
+
 ## [1.0.7] - 2026-08-20
 
 ### Chores

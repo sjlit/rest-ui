@@ -89,6 +89,19 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, inject } from 'vue'
+import {
+  ElButton,
+  ElDescriptions,
+  ElDescriptionsItem,
+  ElDialog,
+  ElDrawer,
+  ElDropdown,
+  ElDropdownItem,
+  ElDropdownMenu,
+  ElIcon,
+  ElPagination,
+  vLoading,
+} from 'element-plus'
 import { More } from '@element-plus/icons-vue'
 import type { Schema, Model, Action as ActionType, Pagination as PaginationType, Scenario } from '../core/types'
 import type { SchemaUIConfig } from '../config'

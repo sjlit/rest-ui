@@ -1,6 +1,11 @@
 import type { Component } from 'vue'
+import type { ButtonType, ComponentSize } from 'element-plus'
 
 export type Scenario = 'create' | 'update' | 'delete' | 'search' | 'list' | 'detail' | 'export'
+
+// 透传 element-plus 的尺寸 / 按钮类型联合,供 Action / SchemaGrid 等 prop 用。
+// 直接 re-export 让下游使用者可以从 '@sjlit/rest-ui' 一处拿到 EP 类型,避免散落。
+export type { ButtonType, ComponentSize }
 
 export interface SchemaRule {
   min: number
@@ -100,10 +105,10 @@ export interface Model {
 export interface Action {
   name: string
   label: string
-  type?: string
+  type?: ButtonType
   icon?: string | Component
   round?: boolean
-  size?: string
+  size?: ComponentSize
   permission?: string
   selection?: boolean
   hidden?: boolean | ((model: Model) => boolean | Promise<boolean>)

@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
+import { ElCol, ElForm, ElFormItem, ElRow } from 'element-plus'
 import type { Schema, Model, Action as ActionType, Scenario } from '../core/types'
 import type { SchemaUIConfig } from '../config'
 import { decode, encode } from '../core/codec'
