@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.5] - 2026-08-21
+
+### Bug Fixes
+
+- **`FormItem.vue` 整型 dropdown 字段初始显示 `0` 而不是 placeholder**。
+  - 根因:`codec.decode` 对空值走 `mustMarshal(v, 'integer')` 兜底成 `0`,el-select 默认 `empty-values` 不含 `0`,把 model 里的 `0` 当成已选值直接渲染,placeholder("请选择 xxxx")永远不出现。
+  - 修复:dropdown 分支的 el-select 增加 `:empty-values="[0, '', undefined, null]"`,在 EP 默认空值基础上并入 `0`,让下拉正常显示占位文案。
+  - 已知副作用:若某下拉存在合法的 `value: 0` 选项(如"未分类"),选中后显示会退回 placeholder;此类 schema 需等待 decode 层职责归位方案。
+
 ## [1.1.4] - 2026-08-21
 
 ### Bug Fixes
