@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.1.2] - 2026-08-21
+
+### Bug Fixes
+
+- **`FormItem.vue` 中 schema 下拉 (`format=dropdown` / `multiSelect`) 选项无法渲染**。
+  - 根因:上次构建优化 (1.1.1) 把 EP 改成深层路径 import 时,`select` 模块里
+    `ElOption` 与 `ElSelect` 写在同一行:
+    ```js
+    import ElOption from 'element-plus/es/components/select/index.mjs'
+    import ElSelect from 'element-plus/es/components/select/index.mjs'
+    ```
+    但 EP `select/index.mjs` 的 `default` 导出是 `ElSelect`,`ElOption` 是命名导出。
+    两次 default import 被 rollup 合并为同一绑定,`ElOption` 实际指向 `ElSelect` 组件
+    对象。模板里 `<el-option v-for="item in schema.attributes.values">` 被编译成
+    对 ElSelect 的 `createBlock`,每个下拉项都被渲染成嵌套的 ElSelect,导致下拉面板
+    打不开 / 不显示选项。
+  - 修复:按 1.1.1 已建立的"父+子同源模块用 named import"模式 (SchemaForm /
+    SchemaGrid / SchemaPage 都已正确) 改为:
+    ```js
+    import { ElOption, ElSelect } from 'element-plus/es/components/select/index.mjs'
+    ```
+  - 影响范围:所有 `format=dropdown` / `format=multiSelect` 的 schema 字段(搜索栏、
+    表单、列表筛选都会用到)。其它 `<el-option>` 用法(`search_boolean` 的两个
+    true/false 项)同样依赖此绑定,一并修复。
+  - 验证:dist 中 `select/index.mjs` 的 import 由合并态 (`import ie from ...`)
+    恢复为 `import { ElSelect as Pe, ElOption as ge } from ...`,循环渲染处
+    `<el-option>` 现在引用 `ge` (ElOption) 而非 `Pe` (ElSelect)。
+
 ## [1.1.1] - 2026-08-21
 
 ### Bug Fixes
