@@ -19,6 +19,7 @@ export type {
   Model,
   Action,
   Pagination,
+  Scenario,
   Sortable,
   CRUDOptions,
 } from './core/types'
