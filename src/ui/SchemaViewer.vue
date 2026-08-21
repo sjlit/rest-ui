@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus/es/components/message-box/index.mjs'
 import type { Schema, Model, Action as ActionType, CRUDOptions, Scenario } from '../core/types'
 import { CRUD } from '../runtime/crud'
 import { useSchemaUI } from '../runtime/useSchemaUI'

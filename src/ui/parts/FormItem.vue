@@ -161,17 +161,15 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import {
-  ElButton,
-  ElCascader,
-  ElDatePicker,
-  ElInput,
-  ElOption,
-  ElSelect,
-  ElSwitch,
-  ElTimeSelect,
-  ElUpload,
-} from 'element-plus'
+import ElButton from 'element-plus/es/components/button/index.mjs'
+import ElCascader from 'element-plus/es/components/cascader/index.mjs'
+import ElDatePicker from 'element-plus/es/components/date-picker/index.mjs'
+import ElInput from 'element-plus/es/components/input/index.mjs'
+import ElOption from 'element-plus/es/components/select/index.mjs' // ElOption 与 ElSelect 同源
+import ElSelect from 'element-plus/es/components/select/index.mjs'
+import ElSwitch from 'element-plus/es/components/switch/index.mjs'
+import ElTimeSelect from 'element-plus/es/components/time-select/index.mjs'
+import ElUpload from 'element-plus/es/components/upload/index.mjs'
 import type { CascaderOption } from 'element-plus'
 import type { Schema, Scenario } from '../../core/types'
 import { createDefaultTranslator } from '../../core/i18n'

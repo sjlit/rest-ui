@@ -2,6 +2,9 @@
 
 基于 REST Schema 定义的 Vue 3 + Element Plus 组件库，提供 schema 驱动的自动 CRUD 页面渲染能力。
 
+> **⚠️ 升级提示**：如果消费方构建后 vendor chunk 体积超过 1 MB,
+> 请升级到 ≥ 1.1.1 版本。原因和原理详见 [引入 Element Plus / 体积对比](#体积对比实测-vite-5--element-plus-214)。
+
 ## 设计理念
 
 本库以 REST 项目的 `schema` 模块定义为唯一类型标准，通过后端返回的 schema 元数据自动渲染搜索表单、数据表格、创建/编辑对话框等 UI 元素，实现"零代码"或"低代码"的 CRUD 页面开发。
@@ -175,6 +178,15 @@ loadSchemas()
 `SchemaViewer.vue` 里的命令式 API `ElMessageBox.confirm` 也已经
 显式 import。下面分三种使用方式说明。
 
+> **重要**：上面说的"任何方式"指消费方只要保证 `element-plus` 已经被
+> 加载到运行时即可。**消费方页面里如果自己又写了 `<el-xxx>` 标签**
+> （例如 `<el-button>`、`<el-input>` 放在自己的 `<template>` 里），
+> 那么消费方要么走方式一（`app.use(ElementPlus)`）、要么走方式二
+> （`unplugin-vue-components` + `ElementPlusResolver`），不然模板
+> 编译时会报 `Failed to resolve component: el-xxx`。rest-ui 自带的
+> `ElementPlusResolver` 解析覆盖了它用到的 27 个 EP 组件，所以方式二
+> 完全够用。
+
 ### 方式一：全量 `app.use(ElementPlus)`（最省事）
 
 ```typescript
@@ -193,27 +205,29 @@ app.mount('#app')
 `rest-ui` 内部对每个组件用的是局部 import（Vue 3 `<script setup>`
 会优先匹配局部），不会和全局注册产生冲突，也不会出现重复注册告警。
 
-### 方式二：按需引入（推荐用于 bundle 体积敏感场景）
+### 方式二：按需引入（**C 端项目强烈推荐**）
 
 通过 `unplugin-vue-components` 让消费方自己写的 `<el-xxx>` 标签也能
 自动 import；`rest-ui` 内部已经 import 的组件会由打包器自动 tree-shake
 去掉重复 import，**无需额外配置**。
 
 ```bash
-npm install -D unplugin-auto-import unplugin-vue-components
+npm install -D unplugin-vue-components
 ```
 
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite'
-import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 export default defineConfig({
   plugins: [
-    AutoImport({ resolvers: [ElementPlusResolver()] }),
-    Components({ resolvers: [ElementPlusResolver()] }),
+    Components({
+      // 关键: 必须是 'css',让 resolver 自动按需注入组件对应的 CSS,
+      // 而不是要求消费方手动 import 'element-plus/dist/index.css'(那会回到全量样式)。
+      resolvers: [ElementPlusResolver({ importStyle: 'css' })],
+    }),
   ],
 })
 ```
@@ -244,14 +258,14 @@ Element Plus 全局变量。采用按需引入时，每个被加载的组件都�
 ```javascript
 // vue.config.js 或 webpack.config.js
 const { ElementPlusResolver } = require('unplugin-vue-components/resolvers')
-const AutoImport = require('unplugin-auto-import/webpack').default
 const Components = require('unplugin-vue-components/webpack').default
 
 module.exports = {
   // ...
   plugins: [
-    AutoImport({ resolvers: [ElementPlusResolver()] }),
-    Components({ resolvers: [ElementPlusResolver()] }),
+    Components({
+      resolvers: [ElementPlusResolver({ importStyle: 'css' })],
+    }),
   ],
 }
 ```
@@ -261,9 +275,46 @@ module.exports = {
 | 场景 | 推荐 |
 |------|------|
 | 内部管理系统、原型验证、不在意体积 | 方式一（最省事） |
-| 面向 C 端、bundle 体积敏感 | 方式二（按需） |
+| **面向 C 端、bundle 体积敏感** | **方式二（按需）** |
 | 已有 `unplugin-vue-components` 配置 | 方式二（无需为 `rest-ui` 特殊处理） |
 | 单元测试 / Storybook / 脱离 `app.use` | 方式一 or 方式二都可以，库内已经包含全部依赖 |
+
+### 体积对比（实测，Vite 5 + element-plus 2.14）
+
+下面数字来自同一个最小消费方 demo（仅引入 `@sjlit/rest-ui` 加上用到的
+几个 el-* 组件），可见按需引入对最终 bundle 体积的影响：
+
+| 引入方式 | 打包后 CSS | gzip 后 CSS | 打包后 JS | gzip 后 JS |
+|---|---|---|---|---|
+| 方式一（`app.use(ElementPlus)` + `index.css`） | **363.65 kB** | 49.15 kB | 1 MB+ | 280 kB+ |
+| 方式二（`ElementPlusResolver({ importStyle: 'css' })`） | **81.28 kB** | **11.44 kB** | ~200 kB | ~60 kB |
+| **本次修复（≥1.1.1，库改深层路径 import）** | 6.53 kB | 1.75 kB | **~670 kB** | ~220 kB |
+
+按需引入对 CSS 的收益最大，**节省约 78%**。`rest-ui` 自带的
+`dist/style.css`（约 8 KB，仅 `.schema-*` 前缀的覆写样式）无论如何
+都会进入产物，因为它依赖 `--el-color-primary` 等 CSS 变量来适配主题。
+如果消费方已经全量引入了 EP 样式，这 8 KB 可以省掉。
+
+**为什么 1.1.0 → 1.1.1 升级 vendor chunk 就能瘦下来？**
+
+1.1.0 之前库内部写的是 `import { ElButton } from 'element-plus'`。这个
+入口是聚合 barrel（`element-plus/es/index.mjs`），它内部 import 了全部
+60+ 个组件 + 全部 hooks + 全部 constants。即使消费方只用了 `ElButton`
+这一个具名，rollup treeshake 也会失败 —— 因为 SASS 主题样式 + 共享
+hooks（如 `useFormSize`）在多组件间形成传递依赖，barrel 文件的执行链
+无法被剥离，结果消费方 vendor chunk 拉进全量 EP（1 MB+）。
+
+1.1.1 把库内 7 个 .vue 文件全部改成 **深层路径** import，例如
+`import ElButton from 'element-plus/es/components/button/index.mjs'`。
+这与 `unplugin-vue-components` 的 `ElementPlusResolver` 内部路径完全
+一致，可被 vite / rollup / webpack 正确 treeshake。**消费方无需任何
+配置改动**，升级版本即可生效（前提是消费方自己没额外 `import ElementPlus`
+或 `import 'element-plus/dist/index.css'`）。
+
+> **关于 `@element-plus/icons-vue`**：如果消费方也按需引入图标
+>（`import { Edit } from '@element-plus/icons-vue'`），rollup 能正确
+> treeshake 整个包；如果消费方 `import * as Icons from '@element-plus/icons-vue'`
+> 这种写法会拉全量图标（约 600+ 个 SVG），需要避免。
 
 ---
 

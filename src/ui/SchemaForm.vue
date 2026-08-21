@@ -55,7 +55,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
-import { ElCol, ElForm, ElFormItem, ElRow } from 'element-plus'
+import ElCol from 'element-plus/es/components/col/index.mjs'
+import { ElForm, ElFormItem } from 'element-plus/es/components/form/index.mjs' // FormItem 与 Form 同源 export
+import ElRow from 'element-plus/es/components/row/index.mjs'
 import type { Schema, Model, Action as ActionType, Scenario } from '../core/types'
 import type { SchemaUIConfig } from '../config'
 import { decode, encode } from '../core/codec'

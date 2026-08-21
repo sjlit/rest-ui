@@ -51,7 +51,9 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { ElCollapse, ElCollapseItem, ElEmpty, ElTable, ElTableColumn } from 'element-plus'
+import { ElCollapse, ElCollapseItem } from 'element-plus/es/components/collapse/index.mjs' // CollapseItem 与 Collapse 同源
+import ElEmpty from 'element-plus/es/components/empty/index.mjs'
+import { ElTable, ElTableColumn } from 'element-plus/es/components/table/index.mjs' // TableColumn 与 Table 同源
 import type { Schema, Model, Action as ActionType, Scenario, ComponentSize } from '../core/types'
 import { filterByScenario } from '../core/form'
 import Cell from './parts/Cell.vue'

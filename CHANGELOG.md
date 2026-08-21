@@ -1,5 +1,43 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **修复 `rest-ui` 把 element-plus 全量 (1 MB+) 拽进消费方 vendor chunk 的问题**。
+  - 根因:库内原写法是 `import { ElButton } from 'element-plus'`,该入口是聚合 barrel
+    (`element-plus/es/index.mjs`),其内 `import` 了全部 60+ 个组件 + 全部 hooks + 全部
+    constants。即使消费方用 `import { ElButton }` 这种具名写法,rollup 仍会把 barrel
+    文件的执行链全部 treeshake 失败(SASS 主题模块、`useFormSize` 等共享 hook 在
+    多组件间形成传递依赖),结果消费方的 `vendor-rest-*.js` 膨胀到 1 MB+。
+  - 修复:把 7 个 .vue 文件 (SchemaPage / SchemaGrid / SchemaForm / SchemaViewer /
+    parts/Action / parts/Cell / parts/FormItem) 全部改成 **深层路径** import,例如
+    `import ElButton from 'element-plus/es/components/button/index.mjs'`。
+    这与 `unplugin-vue-components` 的 `ElementPlusResolver` 内部使用的路径一致,
+    已被证实可被 rollup/vite/webpack 正确 treeshake。
+  - `vite.config.ts` 的 `external` 列表同步从 `'element-plus'` 改为正则
+    `/^element-plus(\/.*)?$/`,保证深层子路径也走外部化,库自身产物大小不变 (76 KB ES)。
+  - 实测对比(同一最小消费方 demo,只 import `SchemaViewer` 并真实 mount):
+    - 1.1.0 修复前 vendor chunk:**~1.1 MB**
+    - 本次修复后 vendor chunk:**~670 KB**(gzip ~220 KB),其中 ~600 KB 是 EP 27 个
+      按需组件 + 共享 utils + styles 的真实体积,不再有 barrel 副作用。
+
+### Documentation
+
+- `README.md` 在"引入 Element Plus"章节新增**实测体积对比**,并把方式二的
+  `ElementPlusResolver()` 改为 `ElementPlusResolver({ importStyle: 'css' })`。
+  - 数据来源:Vite 5 + element-plus 2.14,最小消费方 demo。
+  - 全量引入 (`app.use(ElementPlus)` + `import 'element-plus/dist/index.css'`)
+    → 打包 CSS **363.65 kB** (gzip 49.15 kB)。
+  - 按需引入 (`ElementPlusResolver({ importStyle: 'css' })`)
+    → 打包 CSS **81.28 kB** (gzip 11.44 kB),节省约 **78%**。
+  - 1MB 几乎全部来自 element-plus 全量引入,`rest-ui` 自身只有约 76 kB (gzip 后
+    ~25 kB) JS + 8 kB CSS,与全量/按需无关。
+  - 新增"消费方页面如果自己写 `<el-*>` 必须二选一"的明确说明,避免漏装 resolver
+    导致运行时 `Failed to resolve component`。
+  - 明确指出:**升级到本次修复版本后,无需消费方做任何改动,库自身 vendor chunk
+    体积就会大幅下降**(只要消费方不主动 `import ElementPlus` 或 `import 'element-plus/dist/index.css'`)。
+
 ## [1.1.0] - 2026-08-21
 
 ### Refactor

@@ -12,7 +12,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { ElButton, ElIcon, ElTooltip } from 'element-plus'
+import ElButton from 'element-plus/es/components/button/index.mjs'
+import ElIcon from 'element-plus/es/components/icon/index.mjs'
+import ElTooltip from 'element-plus/es/components/tooltip/index.mjs'
 import type { Action as ActionType, Model } from '../../core/types'
 
 interface Props {

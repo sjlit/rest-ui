@@ -89,19 +89,18 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, inject } from 'vue'
-import {
-  ElButton,
-  ElDescriptions,
-  ElDescriptionsItem,
-  ElDialog,
-  ElDrawer,
-  ElDropdown,
-  ElDropdownItem,
-  ElDropdownMenu,
-  ElIcon,
-  ElPagination,
-  vLoading,
-} from 'element-plus'
+import ElButton from 'element-plus/es/components/button/index.mjs'
+import { ElDescriptions, ElDescriptionsItem } from 'element-plus/es/components/descriptions/index.mjs' // DescriptionsItem 与 Descriptions 同源
+import ElDialog from 'element-plus/es/components/dialog/index.mjs'
+import ElDrawer from 'element-plus/es/components/drawer/index.mjs'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus/es/components/dropdown/index.mjs' // 子组件与 Dropdown 同源
+import ElIcon from 'element-plus/es/components/icon/index.mjs'
+import ElPagination from 'element-plus/es/components/pagination/index.mjs'
+import { vLoading } from 'element-plus/es/components/loading/index.mjs'
+// 说明:必须从 `element-plus/es/components/xxx/index.mjs` 深层路径走,不能直接
+// `from 'element-plus'`,后者是聚合 barrel,会让消费方 vendor chunk 膨胀到 1 MB+。
+// 深层路径与 `unplugin-vue-components` 的 ElementPlusResolver 内部使用的路径一致,
+// 已经被证实可被 rollup treeshake。
 import { More } from '@element-plus/icons-vue'
 import type { Schema, Model, Action as ActionType, Pagination as PaginationType, Scenario } from '../core/types'
 import type { SchemaUIConfig } from '../config'

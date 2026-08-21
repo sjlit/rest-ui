@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ElTag } from 'element-plus'
+import ElTag from 'element-plus/es/components/tag/index.mjs'
 import type { Model, Schema } from '../../core/types'
 import { createDefaultTranslator } from '../../core/i18n'
 import '../../styles/cell.scss'
