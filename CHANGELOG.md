@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.1.4] - 2026-08-21
+
+### Bug Fixes
+
+- **`Cell.vue` `multiSelect` 列渲染空白**。
+  - 根因:`rawValue` 只对 `{label, value}` 单对象形态做解包,没有 `Array.isArray` 分支。`codec.decode` 会把 `multiSelect` 字段解成对象数组,`typeof [] === 'object'` 且数组没有 `.label`/`.value`,走对象分支会退化成空串,整列显示空白。
+  - 修复:新增 `Array.isArray` 分支,把各项的 `label`(兜底 `String(value)`)用 `', '` 拼接后返回。`displayValue` 的 `find` / `formatValueByFormat` 走 default 分支输出。
+
+- **`SchemaPage.handleBatchAction` 漏 `asyncCallback`**。
+  - 根因:仅判断 `typeof action.callback === 'function'`,只用 `asyncCallback` 的批量操作(典型:批量导出、批量归档需要 `await httpClient`)按钮静默 no-op。
+  - 修复:对齐 `SchemaGrid.handleActionClick` 的双分支写法,callback 同步调用、asyncCallback 链上 `.catch` 防 unhandled rejection。同步分支顺手补传 `props.schemas` 第二参。
+
+- **`FormItem.vue` / `Cell.vue` 漏 `inject(GLOBAL_CONFIG_KEY)`**。
+  - 根因:两个叶子组件直接 `createDefaultTranslator()`,即使消费方在 `SchemaUIPlugin` 里配了 `i18n.t`,所有 dropdown placeholder / boolean 选项标签 / file 上传按钮文案 / cell tag 文本都停留默认中文兜底。
+  - 修复:与 `SchemaPage` / `SchemaForm` 顶层一致地 `inject(GLOBAL_CONFIG_KEY)`,`t = globalConfig?.i18n?.t || createDefaultTranslator()`。
+
+- **`mustMarshal` 把 `±Infinity` 字面量穿透到 wire payload**。
+  - 根因:`parseFloat('Infinity') === Infinity`,而 `Number.isNaN(Infinity) === false`,旧版 `Number.isNaN` 兜底漏掉。`default_value: 'Infinity'` 或上游计算默认值中的 `±Inf` 字面量会直接进 Go decoder 导致失败。
+  - 修复:`integer` / `float` / `decimal` 分支统一用 `Number.isFinite` 替换 `Number.isNaN`,同时兜住 `NaN` 与 `±Infinity`。
+
+### Refactor
+
+- 公开 `Scenario` 类型到 `src/index.ts`。`Schema.scenarios` / `SchemaRule.required` / 所有 `scenario` prop 都依赖它,此前消费方只能 inline 字面量联合或走未在 `exports` 中暴露的内部路径。
+
 ## [1.1.3] - 2026-08-21
 
 ### Bug Fixes
