@@ -1,6 +1,6 @@
 {
   "name": "@sjlit/rest-ui",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "Schema-driven UI components for REST projects",
   "license": "MIT",
   "type": "module",
