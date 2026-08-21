@@ -115,7 +115,7 @@ const visibleSchemas = computed(() => filterByScenario(props.schemas, props.scen
 function getMobilePrimaryLabel(model: Model): string {
   const pkSchema = props.schemas.find((s) => s.primary_key === 1)
   if (pkSchema) {
-    const val = model[pkSchema.column]
+    const val = getModelLabel(model, pkSchema.column)
     return val !== undefined && val !== null ? String(val) : ''
   }
   const firstKey = Object.keys(model)[0]
