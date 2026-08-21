@@ -5,10 +5,13 @@
 ### Bug Fixes
 
 - **`SchemaGrid` 移动折叠列表主字段在 dropdown 列上显示成 `[object Object]`**。
-  - 根因:`SchemaGrid.vue#getMobilePrimaryLabel` 没有 primary_key 时,回退取 `model` 第一个 key,直接 `String(model[firstKey])`。当该列是 dropdown,后端原始 model 字段有时是 `{ label, value }` 对象形态,`String({...})` 会得到 `[object Object]`,折叠面板里就显示这个字符串。
-  - 修复:改用 `src/core/model.ts#getModelLabel(model, column)`,统一处理 `{ label, value }` 对象(返回 label)、原始值(返回 `String(value)`)、`null/undefined`(返回 `''`)。与 PC 端 `findModelPrimaryKey` 解包 `__format=both` 单元格时的语义对齐。
+  - 根因:`SchemaGrid.vue#getMobilePrimaryLabel` 两条取值分支都直接对 model 取值做 `String(...)`:
+    1. 命中 primary_key schema → `String(model[pkSchema.column])`
+    2. 未命中 → 取首个 key,`String(model[firstKey])`
+    当该列是 dropdown,后端原始 model 字段有时是 `{ label, value }` 对象形态,`String({...})` 得到 `[object Object]`,折叠面板标题里就显示这个字符串。
+  - 修复:两条分支都改用 `src/core/model.ts#getModelLabel(model, column)`,统一处理 `{ label, value }` 对象(返回 label)、原始值(返回 `String(value)`)、`null/undefined`(返回 `''`)。与 PC 端 `findModelPrimaryKey` 解包 `__format=both` 单元格时的语义对齐。
   - 影响范围:仅影响开启 `responsive` + 移动断点下的折叠列表主字段展示,以及任何把 dropdown 列作为 schema 第一列(无 primary_key)的场景。
-  - 验证:`npm run typecheck` / `npm run build` (76.99 kB) / `npm test` (62/62) 全绿;dist 中 `getModelLabel` 在 `rest-ui.es.js` 内的引用正常解析。
+  - 验证:`npm run typecheck` / `npm run build` (76.99 kB ES) / `npm test` (62/62) 全绿;`getModelLabel` 在 `rest-ui.es.js` 内的引用正常解析。
 
 ## [1.1.2] - 2026-08-21
 
