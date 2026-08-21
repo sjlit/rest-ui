@@ -15,9 +15,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import ElTag from 'element-plus/es/components/tag/index.mjs'
 import type { Model, Schema } from '../../core/types'
+import type { SchemaUIConfig } from '../../config'
+import { GLOBAL_CONFIG_KEY } from '../../config'
 import { createDefaultTranslator } from '../../core/i18n'
 import '../../styles/cell.scss'
 
@@ -27,11 +29,29 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const t = createDefaultTranslator()
+
+// 与 SchemaPage / SchemaForm 一致:叶子组件也要 inject GLOBAL_CONFIG_KEY,
+// 否则 SchemaUIPlugin 配置的 i18n 永远拿不到,boolean 标签 / tag 文案
+// 停留默认中文兜底。
+const globalConfig = inject<SchemaUIConfig | null>(GLOBAL_CONFIG_KEY, null)
+const t = (key: string, ...args: any[]) => {
+  const fn = globalConfig?.i18n?.t || createDefaultTranslator()
+  return fn(key, ...args)
+}
 
 const rawValue = computed(() => {
   const val = props.model[props.schema.column]
   if (val === null || val === undefined) return ''
+  // multiSelect / cascader 等 format 走到这里时,后端已通过 codec.decode 把字段
+  // 解成对象数组,每项形如 { label, value }。typeof [] === 'object' 且数组没有
+  // .label/.value,直接走下面对象分支会被错误地退化成空串,导致整列渲染空白。
+  // 先按数组分支把各项 label 拼成逗号串,再走 default 分支输出。
+  if (Array.isArray(val)) {
+    return val
+      .map((item) => (item && item.label) || String(item?.value ?? ''))
+      .filter((s) => s !== '')
+      .join(', ')
+  }
   if (typeof val === 'object') {
     return val.label || val.value || ''
   }

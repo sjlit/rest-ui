@@ -160,7 +160,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, inject } from 'vue'
 import ElButton from 'element-plus/es/components/button/index.mjs'
 import ElCascader from 'element-plus/es/components/cascader/index.mjs'
 import ElDatePicker from 'element-plus/es/components/date-picker/index.mjs'
@@ -171,6 +171,8 @@ import ElTimeSelect from 'element-plus/es/components/time-select/index.mjs'
 import ElUpload from 'element-plus/es/components/upload/index.mjs'
 import type { CascaderOption } from 'element-plus'
 import type { Schema, Scenario } from '../../core/types'
+import type { SchemaUIConfig } from '../../config'
+import { GLOBAL_CONFIG_KEY } from '../../config'
 import { createDefaultTranslator } from '../../core/i18n'
 import { resolveComponentType } from '../../core/componentType'
 
@@ -181,7 +183,15 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const t = createDefaultTranslator()
+
+// 与 SchemaPage / SchemaForm 一致:叶子组件也要 inject,否则 SchemaUIPlugin
+// 配置的 i18n.t 永远拿不到,所有 dropdown placeholder / boolean 选项标签 /
+// file 上传按钮文案都会停留在默认中文兜底。
+const globalConfig = inject<SchemaUIConfig | null>(GLOBAL_CONFIG_KEY, null)
+const t = (key: string, ...args: any[]) => {
+  const fn = globalConfig?.i18n?.t || createDefaultTranslator()
+  return fn(key, ...args)
+}
 
 const emit = defineEmits<{
   'update:modelValue': [value: any]

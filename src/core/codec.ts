@@ -12,13 +12,16 @@ function mustMarshal(v: any, type: string): any {
       if (v instanceof Date) return Math.floor(v.getTime() / 1000)
       if (v === '' || v === null || v === undefined) return 0
       const n = parseInt(String(v), 10)
-      return Number.isNaN(n) ? 0 : n
+      return Number.isFinite(n) ? n : 0
     case 'decimal':
     case 'float':
     case 'double':
       if (v === '' || v === null || v === undefined) return 0
       const f = parseFloat(String(v))
-      return Number.isNaN(f) ? 0 : f
+      // Number.isFinite 把 NaN 和 ±Infinity 都视为非法,统一兜底为 0,
+      // 防止 'Infinity' / '-Infinity' 字符串或上游计算默认值中的 ±Inf
+      // 字面量穿透到 wire payload 导致 Go decoder 失败。
+      return Number.isFinite(f) ? f : 0
     case 'boolean':
       return Boolean(v)
     case 'string':

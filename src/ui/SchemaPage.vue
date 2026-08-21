@@ -313,8 +313,20 @@ function closeForm() {
 }
 
 function handleBatchAction(action: ActionType) {
+  // 与 SchemaGrid.handleActionClick 保持一致:同时支持 callback 与 asyncCallback。
+  // 仅处理 callback 会导致消费方只用 asyncCallback(典型:批量导出、批量归档需要
+  // await httpClient)时按钮静默 no-op。
   if (typeof action.callback === 'function') {
-    action.callback(selections.value)
+    action.callback(selections.value, props.schemas)
+  } else if (typeof action.asyncCallback === 'function') {
+    action
+      .asyncCallback(selections.value, props.schemas)
+      .catch((err) => {
+        // 异步批量动作默认不弹错误,消费方通常会在自己的 asyncCallback 内
+        // 用 ElMessage.error 兜底。这里只保证 Promise 链上不会触发 unhandled。
+        // eslint-disable-next-line no-console
+        console.error('[SchemaPage] batch action failed:', err)
+      })
   }
 }
 
