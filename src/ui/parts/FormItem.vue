@@ -223,10 +223,16 @@ const isMultiSelect = computed(() => {
   return false
 })
 
-// 整型字段经 decode 兜底后空值是 0,默认 empty-values 不含 0,
-// el-select 会把 0 当成已选值直接显示而不是 placeholder。这里把 0
-// 并入空值判定(保留 EP 默认的 ''/undefined/null),让下拉正常显示占位文案。
-const emptyValues = [0, '', undefined, null]
+// 整型字段经 decode 兜底后空值可能是 0（历史数据 / 外部回显），默认 empty-values
+// 不含 0，el-select 会把 0 当成已选值直接显示而不是 placeholder。这里把 0
+// 并入空值判定（保留 EP 默认的 ''/undefined/null）。但若选项里存在合法的
+// value === 0，0 必须参与选中态判定，此时退回 EP 默认空值集合。
+const emptyValues = computed(() => {
+  const hasZeroOption = (props.schema.attributes.values ?? []).some(
+    (item: any) => item.value === 0,
+  )
+  return hasZeroOption ? ['', undefined, null] : [0, '', undefined, null]
+})
 
 const isRange = computed(() => isSearch.value)
 

@@ -135,10 +135,14 @@ export function encode(raw: Model, schemas: Schema[], scenario: Scenario): Model
         data[schema.column] = mustMarshal(vals, 'string')
       } else if (Array.isArray(vals)) {
         for (let i = 0; i < columns.length; i++) {
+          // search 场景缺失列跳过，避免 mustMarshal 兜底出假 0（同第 6 步）
+          if (scenario === 'search' && vals[i] === undefined) continue
           data[columns[i]] = mustMarshal(vals[i], schema.type)
           excludes.push(columns[i])
         }
       } else {
+        // search 场景整体为空时不写任何列
+        if (scenario === 'search') continue
         for (let i = 0; i < columns.length; i++) {
           data[columns[i]] = mustMarshal('', schema.type)
           excludes.push(columns[i])
@@ -189,6 +193,10 @@ export function encode(raw: Model, schemas: Schema[], scenario: Scenario): Model
     // 6. 其他：default_value 兜底 + mustMarshal
     let v = raw[schema.column]
     if (v === undefined || v === null || v === '') {
+      // search 场景空值直接跳过：整型/浮点经 mustMarshal 会兜底成 0，
+      // 未选择的下拉字段会被当成「筛选 = 0」发给后端，查询参数回显到表单
+      // 后又变成假 0（el-select 显示 "0" 而非 placeholder）。
+      if (scenario === 'search') continue
       v = scenario === 'create' ? (attrs.default_value ?? '') : ''
     }
     data[schema.column] = mustMarshal(v, schema.type)
@@ -226,7 +234,22 @@ export function decode(raw: Model, schemas: Schema[], scenario: Scenario): Model
           data[schema.column] = []
         }
       } else {
-        data[schema.column] = raw[schema.column] != null ? raw[schema.column] : ''
+        // 空值统一兜底为 ''，非空值才按 schema.type 规整。
+        // 不能对空值走 mustMarshal：整型会落成 0，URL/查询参数回显的 '0'
+        // 也无法与真实选项区分，el-select 会显示 "0" 而不是 placeholder。
+        const v = raw[schema.column]
+        if (v == null || v === '') {
+          data[schema.column] = ''
+        } else if (typeof v === 'object') {
+          // 数组/对象（如调用方自定义的多值过滤参数）原样透传
+          data[schema.column] = v
+        } else if (schema.type === 'boolean' && typeof v === 'string') {
+          // mustMarshal 对 boolean 走 Boolean(v)，'false' 会被翻成 true；
+          // URL 回显的字符串字面量必须显式映射。
+          data[schema.column] = v === 'true'
+        } else {
+          data[schema.column] = mustMarshal(v, schema.type)
+        }
       }
       continue
     }
@@ -300,7 +323,11 @@ export function decode(raw: Model, schemas: Schema[], scenario: Scenario): Model
     } else if (scenario === 'create') {
       v = attrs.default_value ?? ''
     }
-    data[schema.column] = mustMarshal(v == null ? '' : v, schema.type)
+    // 空值统一落 ''：el-select / el-input 的空态是 ''/null，
+    // 落成 mustMarshal 兜底的 0 会被当成已选值显示 "0" 而非 placeholder。
+    // 非空值仍按 schema.type 规整（'25' → 25 等）。
+    data[schema.column] =
+      v == null || v === '' ? '' : mustMarshal(v, schema.type)
   }
   return data
 }

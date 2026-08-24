@@ -356,3 +356,75 @@ test('encode null / undefined 整数 → 0', () => {
   assert.equal(encode({ n: null }, schemas, 'create').n, 0)
   assert.equal(encode({}, schemas, 'create').n, 0)
 })
+
+// ============ search 空值不落假 0 ============
+
+test('encode search 场景：未选择的整型字段跳过，不产生假 0', () => {
+  const schemas = [
+    schema({ column: 'status', type: 'integer' }),
+    schema({ column: 'name', type: 'string' }),
+  ]
+  const result = encode({ status: '', name: '' }, schemas, 'search')
+  assert.equal('status' in result, false)
+  assert.equal('name' in result, false)
+})
+
+test('encode search 场景：真实选中的 0 值正常提交', () => {
+  const schemas = [schema({ column: 'status', type: 'integer' })]
+  const result = encode({ status: 0 }, schemas, 'search')
+  assert.equal(result.status, 0)
+})
+
+test('decode create/update 场景：空值落 "" 而非 0（el-select 显示 placeholder）', () => {
+  const schemas = [schema({ column: 'status', type: 'integer' })]
+  assert.equal(decode({ status: null }, schemas, 'create').status, '')
+  assert.equal(decode({}, schemas, 'create').status, '')
+  assert.equal(decode({ status: '' }, schemas, 'update').status, '')
+})
+
+test('decode search 场景：字符串 "0"（URL 回显）按类型规整为数字 0', () => {
+  const schemas = [schema({ column: 'status', type: 'integer' })]
+  const result = decode({ status: '0' }, schemas, 'search')
+  assert.equal(result.status, 0)
+  assert.equal(typeof result.status, 'number')
+})
+
+test('decode search 场景：对象/数组值原样透传', () => {
+  const schemas = [schema({ column: 'ids', type: 'string' })]
+  const result = decode({ ids: [1, 2] }, schemas, 'search')
+  assert.deepEqual(result.ids, [1, 2])
+})
+
+test('decode search 场景：非空整型按类型规整，空值保持 ""', () => {
+  const schemas = [schema({ column: 'status', type: 'integer' })]
+  assert.equal(decode({ status: 3 }, schemas, 'search').status, 3)
+  assert.equal(decode({ status: '' }, schemas, 'search').status, '')
+})
+
+test('decode search 场景：boolean 字符串 "false" 不被 Boolean() 翻成 true', () => {
+  const schemas = [schema({ column: 'enabled', type: 'boolean' })]
+  assert.equal(decode({ enabled: 'false' }, schemas, 'search').enabled, false)
+  assert.equal(decode({ enabled: 'true' }, schemas, 'search').enabled, true)
+  assert.equal(decode({ enabled: '' }, schemas, 'search').enabled, '')
+})
+
+test('encode search 场景：cascader 拆列空值不产生假 0', () => {
+  const schemas = [
+    schema({
+      column: 'addr',
+      type: 'integer',
+      attributes: attrs({
+        live: { enable: true, type: 'cascader', columns: ['prov', 'city'] },
+      }),
+    }),
+  ]
+  const empty = encode({}, schemas, 'search')
+  assert.equal('prov' in empty, false)
+  assert.equal('city' in empty, false)
+  // 部分选择时缺失列跳过
+  const partial = encode({ addr: [1] }, schemas, 'search')
+  assert.deepEqual(partial, { prov: 1 })
+  // 真实选中的 0 正常提交
+  const zero = encode({ addr: [0, 0] }, schemas, 'search')
+  assert.deepEqual(zero, { prov: 0, city: 0 })
+})
