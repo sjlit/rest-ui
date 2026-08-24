@@ -1,6 +1,28 @@
 # Changelog
 
-## [1.1.5] - 2026-08-21
+## [1.1.6] - 2026-08-24
+
+### Bug Fixes
+
+- **search 场景 el-select 空值显示 `0` 而不是 placeholder（1.1.5 修复未覆盖 search 链路）**。
+  - 根因：create 与 search 走的是不同的 codec 分支。create 的空值经 `mustMarshal('' , 'integer')` 兜底成 `0`，被 1.1.5 的 `empty-values` 覆盖；而 search 表单一旦有查询参数回流（presetQuery / URL 同步），`decode(..., 'search')` 对非日期字段原样透传，假 `0` / `'0'` 直接进 v-model。假 0 的源头是 `encode(activeModel, schemas, 'search')` 把未触碰的下拉空串兜底成 `0`，且 `clearSearchModel` 只剔除 `''/null/undefined`，`0` 会作为「筛选 = 0」发给后端再随回显进入表单。
+  - 修复：`codec.encode` search 场景空值字段直接跳过（含 cascader 拆列分支），真实选中的 `0` 正常提交；`codec.decode` create/update 分支空值统一落 `''`，search 分支非空值按 `schema.type` 规整（URL 回显的 `'0'` → 数字 `0` 可匹配选项），对象/数组透传。
+
+- **decode(search) 类型规整把 boolean 字符串翻转**（本版本开发过程中发现并修复）。
+  - 根因：回显值按类型规整时 boolean 走 `Boolean(v)`，`Boolean('false') === true`，URL 回显 `?enabled=false` 会错误选中"是"。
+  - 修复：boolean 仅对字符串字面量 `'true'`/`'false'` 显式映射，其余场景不受影响。
+
+- **`FormItem.vue` 合法 `value: 0` 选项被当成空值**（1.1.5 已知副作用的收敛）。
+  - 修复:`empty-values` 改为 computed——选项里存在 `value === 0` 时退回 EP 默认空值集合，选中 0 值选项不再显示 placeholder；无 0 值选项的字段保持并入 `0` 的行为以兼容历史数据回显。
+
+### Behavior Changes
+
+- `decode` 在 create/update 场景对空整型/浮点字段返回 `''` 而非 `0`；依赖 `model.xxx === 0` 判断的消费方需调整。
+- required 校验变严：整型下拉必填字段不再被假 `0` 静默通过。
+- `SchemaForm.applyDefaults` 开始对整型字段生效：此前 decode 出的 `0` 不在空值判定内挡住了 default_value 回填，现在默认值能正常落到 create 表单。
+- visible 联动条件按真实选择评估：父字段为空时不再"意外满足" `values: [0]` 类显示条件。
+- search 提交 payload 变稀疏：未选择的字段直接缺 key（后端缺省即不过滤）；直接遍历 `emit('search', model)` key 的消费方需注意。
+
 
 ### Bug Fixes
 
