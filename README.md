@@ -142,7 +142,7 @@ async function handleSearch(model: Model) {
   const data = await res.json()
   models.value = data.data
   pagination.value = {
-    index: parseInt(data.page),
+    index: (parseInt(data.page) || 0) + 1,
     size: parseInt(data.page_size),
     totalCount: parseInt(data.total_count),
   }
@@ -153,11 +153,22 @@ function handlePageChange(index: number) {
   handleSearch({})
 }
 
-function handleFormSubmit(model: Model, scenario: string) {
-  if (scenario === 'create') {
-    fetch('/rest/user/admin', { method: 'POST', body: JSON.stringify(model) })
-  } else {
-    fetch(`/rest/user/admin/${model.id}`, { method: 'PUT', body: JSON.stringify(model) })
+async function handleFormSubmit(
+  model: Model,
+  scenario: string,
+  controls?: { resolve: () => void; reject: (err: any) => void; close: () => void },
+) {
+  try {
+    if (scenario === 'create') {
+      await fetch('/rest/user/admin', { method: 'POST', body: JSON.stringify(model) })
+    } else {
+      await fetch(`/rest/user/admin/${model.id}`, { method: 'PUT', body: JSON.stringify(model) })
+    }
+    controls?.resolve()
+    controls?.close()
+    handleSearch({})
+  } catch (err) {
+    controls?.reject(err)
   }
 }
 
@@ -245,6 +256,12 @@ app.use(SchemaUIPlugin, { httpClient: /* ... */ })
 app.mount('#app')
 ```
 
+> 注意：`rest-ui` 以预编译 JS 分发，库内部的 Element Plus deep import 不会被
+> `ElementPlusResolver` 扫描。如果消费方页面自己完全没有使用某些 `<el-*>`，
+> 对应组件的 CSS 可能不会被自动引入。最稳妥的做法是引入
+> `import 'element-plus/dist/index.css'`，或手动引入库实际用到的组件
+> `element-plus/es/components/xxx/style/css`。
+
 ### 关于 CSS 变量
 
 `rest-ui` 的样式里大量使用 `var(--el-color-primary, #409eff)` 等
@@ -328,9 +345,12 @@ hooks（如 `useFormSize`）在多组件间形成传递依赖，barrel 文件的
 |------|------|------|------|
 | `httpClient` | `{ get, post, put, delete }` | 是 | HTTP 客户端，用于 `SchemaViewer` 和 `CRUD` 类 |
 | `hasPermission` | `(permission: string) => boolean` | 否 | 权限检查函数 |
-| `router` | `{ push: (to: any) => void }` | 否 | 路由对象，用于页面跳转 |
+| `router` | `{ push: (to: any) => void }` | 否 | 预留，当前未使用 |
 | `i18n` | `{ t: (key: string, ...args: any[]) => string }` | 否 | 国际化翻译函数 |
-| `apiPrefix` | `string` | 否 | API 路由前缀（默认 `'rest'`） |
+| `defaultPageSize` | `number` | 否 | 初始每页条数（默认 15） |
+| `upload` | `{ headers?, withCredentials?, name? }` | 否 | el-upload 请求配置；上传不经过 httpClient，需要鉴权时在此提供 headers |
+| `transformRequest` | `(config: any) => any` | 否 | 预留，当前未使用 |
+| `apiPrefix` | `string` | 否 | API 路由前缀（默认 `''`；需要 `/rest` 时显式传入） |
 
 ### useSchemaUI
 
@@ -628,7 +648,7 @@ const cleanQuery = clearSearchModel(searchModel, schemas)
 | `table` | `string` | - | 表名 |
 | `title` | `string` | `''` | 页面标题 |
 | `apiPrefix` | `string` | `''` | API 前缀，默认使用全局配置 |
-| `config` | `Partial<CRUDOptions>` | `{}` | CRUD 配置覆盖 |
+| `config` | `Partial<CRUDOptions>` | `{}` | CRUD 配置覆盖（当前仅使用 `schemas` 预加载） |
 | `size` | `string` | - | 预留字段，当前未生效 |
 | `formMode` | `'drawer' \| 'dialog'` | `'dialog'` | 表单弹窗模式 |
 | `showHeader` | `boolean` | `true` | 是否显示头部 |
@@ -727,6 +747,8 @@ function onReady(crud: CRUD) {
 | `showSearch` | `boolean` | `true` | 是否显示搜索栏 |
 | `showToolbar` | `boolean` | `true` | 是否显示工具栏 |
 | `showPagination` | `boolean` | `true` | 是否显示分页 |
+| `showPageSize` | `boolean` | `true` | 是否显示每页条数选择器 |
+| `pageSizes` | `number[]` | `[10, 15, 30, 50, 100]` | 每页条数候选值 |
 | `readonly` | `boolean` | `false` | 只读模式 |
 | `searchActions` | `Action[]` | `[]` | 搜索操作按钮 |
 | `rowActions` | `Action[]` | `[]` | 行操作按钮 |
@@ -746,7 +768,8 @@ function onReady(crud: CRUD) {
 | `pageChange` | `(index: number)` | 分页切换 |
 | `sortChange` | `{ column, order }` | 排序变化 |
 | `selectionChange` | `(selection: any[])` | 选中项变化 |
-| `formSubmit` | `(model: Model, scenario: string)` | 表单提交 |
+| `formSubmit` | `(model: Model, scenario: string, controls?: { resolve, reject, close })` | 表单提交 |
+| `sizeChange` | `(size: number)` | 每页条数变化 |
 
 #### Slots
 
@@ -826,9 +849,8 @@ Schema 驱动的表单组件，支持网格布局、行内布局、响应式断�
 
 #### Events
 
-| Event | 参数 | 说明 |
-|-------|------|------|
-| `submit` | `(model: Model, schemas: Schema[])` | 表单验证通过并提交 |
+`SchemaForm` 没有内建 `submit` 事件：提交由 `actions` 里的按钮触发，或通过
+组件 ref 调用 `submit()`。验证失败会 reject，不会触发事件。
 
 #### Slots
 
@@ -898,9 +920,9 @@ const crud = new CRUD({
 | `createModel(model)` | `Model` | `Promise<Model>` | 创建记录 |
 | `updateModel(model)` | `Model` | `Promise<Model>` | 更新记录 |
 | `deleteModel(model)` | `Model \| string` | `Promise<any>` | 删除记录 |
-| `getModel(qs)` | `Record<string, any> \| string` | `Promise<Model>` | 获取单条记录详情 |
+| `getModel(qs)` | `Record<string, any> \| string` | `Promise<Model>` | 获取单条记录详情（默认附加 `__format=raw`，表单可直接使用） |
 | `searchModel()` | - | `Promise<Model[]>` | 搜索记录 |
-| `deleteModels(data)` | `any[]` | `Promise<{ total, success, responses }>` | 批量删除 |
+| `deleteModels(data)` | `any[]` | `Promise<{ total, success, failed, responses }>` | 批量删除 |
 | `exportModels()` | - | `Promise<void>` | 导出数据（自动下载 CSV） |
 
 ### URI 构建规则

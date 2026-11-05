@@ -1,10 +1,12 @@
 <template>
   <template v-if="enableMobileTable">
     <el-collapse expand-icon-position="left">
-      <el-collapse-item v-for="(model, idx) in models" :key="idx">
+      <el-collapse-item v-for="(model, idx) in models" :key="getMobileRowKey(model, idx)">
         <template #title>
+          <el-checkbox v-if="selection" :model-value="isMobileSelected(model)" class="mobile-select"
+            @click.stop @change="(checked) => toggleMobileSelection(model, !!checked)" />
           <span class="mobile-primary-label">{{ getMobilePrimaryLabel(model) }}</span>
-          <span class="mobile-actions" v-if="actions.length > 0">
+          <span class="mobile-actions" v-if="actions.length > 0" @click.stop>
             <Action v-for="action in actions" :key="action.name" :action="action" :model="model"
               @click="(_, loading) => handleActionClick(action, model, loading)" />
           </span>
@@ -50,8 +52,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { ElCollapse, ElCollapseItem } from 'element-plus/es/components/collapse/index.mjs' // CollapseItem 与 Collapse 同源
+import ElCheckbox from 'element-plus/es/components/checkbox/index.mjs'
 import ElEmpty from 'element-plus/es/components/empty/index.mjs'
 import { ElTable, ElTableColumn } from 'element-plus/es/components/table/index.mjs' // TableColumn 与 Table 同源
 import type { Schema, Model, Action as ActionType, Scenario, ComponentSize } from '../core/types'
@@ -59,7 +62,7 @@ import { filterByScenario } from '../core/form'
 import Cell from './parts/Cell.vue'
 import Action from './parts/Action.vue'
 import '../styles/grid.scss'
-import { getModelLabel } from '../core/model'
+import { getModelLabel, unwrapCellValue } from '../core/model'
 
 interface Props {
   size?: ComponentSize
@@ -112,6 +115,42 @@ const enableMobileTable = computed(() => {
 
 const visibleSchemas = computed(() => filterByScenario(props.schemas, props.scenario))
 
+const mobileSelection = ref<Model[]>([])
+
+function isMobileSelected(model: Model): boolean {
+  return mobileSelection.value.includes(model)
+}
+
+function toggleMobileSelection(model: Model, checked: boolean) {
+  if (checked) {
+    if (!mobileSelection.value.includes(model)) {
+      mobileSelection.value = [...mobileSelection.value, model]
+    }
+  } else {
+    mobileSelection.value = mobileSelection.value.filter((item) => item !== model)
+  }
+  emit('selection', mobileSelection.value)
+}
+
+// 搜索/分页替换 models 时清空移动端选择，避免批量操作作用在已不在列表中的行。
+watch(
+  () => props.models,
+  () => {
+    if (mobileSelection.value.length === 0) return
+    mobileSelection.value = []
+    emit('selection', [])
+  },
+)
+
+function getMobileRowKey(model: Model, index: number): string {
+  const pkSchema = props.schemas.find((s) => s.primary_key === 1)
+  if (pkSchema) {
+    const value = unwrapCellValue(model[pkSchema.column])
+    if (value !== undefined && value !== null && value !== '') return String(value)
+  }
+  return `row-${index}`
+}
+
 function getMobilePrimaryLabel(model: Model): string {
   const pkSchema = props.schemas.find((s) => s.primary_key === 1)
   if (pkSchema) {
@@ -127,9 +166,14 @@ function handleActionClick(action: ActionType, model: Model, loading: any) {
     action.callback(model, props.schemas)
   } else if (typeof action.asyncCallback === 'function') {
     loading.value = true
-    action.asyncCallback(model, props.schemas).finally(() => {
-      loading.value = false
-    })
+    action
+      .asyncCallback(model, props.schemas)
+      .catch((err) => {
+        console.error('[SchemaGrid] action failed:', err)
+      })
+      .finally(() => {
+        loading.value = false
+      })
   }
 }
 

@@ -1,13 +1,12 @@
 <template>
   <template v-if="componentType === 'time'">
-    <el-time-select
+    <el-time-picker
       v-model="columnValue"
-      start="00:00"
-      step="00:15"
-      end="23:59"
       :disabled="isDisabled || isReadonly"
+      :editable="false"
+      format="HH:mm:ss"
+      value-format="HH:mm:ss"
       :placeholder="placeholder"
-      format="HH:mm"
     />
   </template>
   <template v-else-if="componentType === 'date'">
@@ -105,10 +104,13 @@
       :action="schema.attributes.upload_url"
       :disabled="isDisabled || isReadonly"
       :file-list="fileList"
+      :headers="uploadHeaders"
+      :with-credentials="uploadConfig.withCredentials"
+      :name="uploadConfig.name || 'file'"
       @success="handleUploadSuccess"
       @remove="handleUploadRemove"
     >
-      <el-button type="primary">上传</el-button>
+      <el-button type="primary">{{ t('action.upload') }}</el-button>
     </el-upload>
   </template>
   <template v-else-if="componentType === 'password'">
@@ -168,7 +170,7 @@ import ElDatePicker from 'element-plus/es/components/date-picker/index.mjs'
 import ElInput from 'element-plus/es/components/input/index.mjs'
 import { ElOption, ElSelect } from 'element-plus/es/components/select/index.mjs' // ElOption 与 ElSelect 同源 export
 import ElSwitch from 'element-plus/es/components/switch/index.mjs'
-import ElTimeSelect from 'element-plus/es/components/time-select/index.mjs'
+import ElTimePicker from 'element-plus/es/components/time-picker/index.mjs'
 import ElUpload from 'element-plus/es/components/upload/index.mjs'
 import type { CascaderOption } from 'element-plus'
 import type { Schema, Scenario } from '../../core/types'
@@ -266,6 +268,20 @@ const placeholder = computed(() => {
     return t('placeholder.select', props.schema.label)
   }
   return t('placeholder.input', props.schema.label)
+})
+
+const uploadConfig = computed(() => globalConfig?.upload || {})
+const uploadHeaders = computed(() => {
+  const headers = uploadConfig.value.headers
+  if (typeof headers === 'function') {
+    try {
+      return headers()
+    } catch (err) {
+      console.error('[rest-ui] upload headers resolver failed:', err)
+      return {}
+    }
+  }
+  return headers || {}
 })
 
 const startPlaceholder = computed(() => t('placeholder.start', props.schema.label))

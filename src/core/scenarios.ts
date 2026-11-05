@@ -9,9 +9,16 @@ function isValidScenario(v: string): v is Scenario {
 }
 
 export class Scenarios extends Array<Scenario> {
-  constructor(items?: Scenario[]) {
+  // 注意：Array 的 map/slice 等方法会通过 ArraySpeciesCreate 调用
+  // new Scenarios(length)（参数是数字）。如果构造函数只接受数组，
+  // map/slice 会抛 "items.forEach is not a function"。
+  constructor(items?: Scenario[] | number) {
+    if (typeof items === 'number') {
+      super(items)
+      return
+    }
     super()
-    if (items) {
+    if (Array.isArray(items)) {
       items.forEach(item => this.push(item))
     }
   }

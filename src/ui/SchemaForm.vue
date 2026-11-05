@@ -1,5 +1,6 @@
 <template>
   <div class="schema-form" ref="formElement">
+    <div v-if="globalError" class="schema-form-error">{{ globalError }}</div>
     <el-form
       :model="activeModel"
       :label-width="labelWidthComputed"
@@ -61,6 +62,7 @@ import ElRow from 'element-plus/es/components/row/index.mjs'
 import type { Schema, Model, Action as ActionType, Scenario } from '../core/types'
 import type { SchemaUIConfig } from '../config'
 import { decode, encode } from '../core/codec'
+import { unwrapCellValue } from '../core/model'
 import { generateSchemaRule, checkSchemaVisible, filterByScenario } from '../core/form'
 import { createDefaultTranslator } from '../core/i18n'
 import { GLOBAL_CONFIG_KEY } from '../config'
@@ -125,10 +127,16 @@ const labelWidthComputed = computed(() => {
 
 const globalConfig = inject<SchemaUIConfig | null>(GLOBAL_CONFIG_KEY, null)
 
+const t = (key: string, ...args: any[]) => {
+  const fn = globalConfig?.i18n?.t || createDefaultTranslator()
+  return fn(key, ...args)
+}
+
+const globalError = computed(() => fieldErrors.value['*'] || '')
+
 const formRules = computed(() => {
   const rules: Record<string, any> = {}
   if (props.scenario === 'search') return rules
-  const t = globalConfig?.i18n?.t || createDefaultTranslator()
   for (const schema of displayColumns.value) {
     rules[schema.column] = generateSchemaRule(t, schema, props.scenario)
   }
@@ -143,22 +151,12 @@ function getColSpan(schema: Schema): number {
   return COL_SPANS.THIRD
 }
 
-function applyDefaults(model: Model) {
-  for (const schema of props.schemas) {
-    const defaultValue = schema.attributes.default_value
-    if (defaultValue !== undefined && defaultValue !== null && defaultValue !== '') {
-      if (model[schema.column] === undefined || model[schema.column] === null || model[schema.column] === '') {
-        model[schema.column] = defaultValue
-      }
-    }
-  }
-}
-
 onMounted(() => {
   activeModel.value = decode(props.model || {}, props.schemas, props.scenario)
-  applyDefaults(activeModel.value)
   if (props.autoSubmit) {
-    nextTick(() => submit())
+    nextTick(() => {
+      submit().catch((err) => console.error('[rest-ui] auto submit failed:', err))
+    })
   }
   if (formElement.value) {
     formWidth.value = formElement.value.offsetWidth
@@ -176,7 +174,6 @@ onMounted(() => {
       () => props.model,
       (val) => {
         activeModel.value = decode(val || {}, props.schemas, props.scenario)
-        applyDefaults(activeModel.value)
       },
       { deep: true }
     )
@@ -202,17 +199,8 @@ onUnmounted(() => {
 })
 
 async function submit(): Promise<Model> {
-  const model = encode(activeModel.value, displayColumns.value, props.scenario)
-  if (props.model) {
-    const pkSchema = props.schemas.find((s) => s.primary_key === 1)
-    if (pkSchema && pkSchema.column in props.model) {
-      model[pkSchema.column] = props.model[pkSchema.column]
-    }
-  }
-
   try {
     await formRef.value!.validate()
-    return model
   } catch (e: any) {
     if (e && typeof e === 'object') {
       const fields = Object.values(e)
@@ -222,8 +210,17 @@ async function submit(): Promise<Model> {
         }
       }
     }
-    throw new Error('验证失败')
+    throw new Error(t('error.validation'))
   }
+
+  const model = encode(activeModel.value, displayColumns.value, props.scenario)
+  if (props.model) {
+    const pkSchema = props.schemas.find((s) => s.primary_key === 1)
+    if (pkSchema && pkSchema.column in props.model) {
+      model[pkSchema.column] = unwrapCellValue(props.model[pkSchema.column])
+    }
+  }
+  return model
 }
 
 async function handleActionClick(action: ActionType, loading: any) {
@@ -238,6 +235,9 @@ async function handleActionClick(action: ActionType, loading: any) {
     loading.value = true
     try {
       await action.asyncCallback(await submit(), displayColumns.value)
+    } catch (e) {
+      // 校验失败和接口 rejection 都会走到这里；不 catch 会产生 unhandled rejection。
+      console.error('Form submit failed:', e)
     } finally {
       loading.value = false
     }

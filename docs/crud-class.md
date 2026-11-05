@@ -37,7 +37,7 @@ import { CRUD } from '@sjlit/rest-ui'
 const crud = new CRUD({
   module: 'user',           // 模块名
   table: 'admin',           // 表名
-  apiPrefix: 'rest',        // API 前缀（可选，默认 'rest'）
+  apiPrefix: 'rest',        // API 前缀（可选，默认 ''）
   httpClient: axios,        // HTTP 客户端（必须）
   schemas: preloadedSchemas // 预加载的 schema（可选）
 })
@@ -49,7 +49,7 @@ const crud = new CRUD({
 |------|------|------|------|
 | `module` | `string` | 否 | 模块名，用于构建 URI |
 | `table` | `string` | 否 | 表名，用于构建 URI 和 schema 加载 |
-| `apiPrefix` | `string` | 否 | API 前缀，默认 `'rest'` |
+| `apiPrefix` | `string` | 否 | API 前缀，默认 `''` |
 | `httpClient` | `object` | 是 | HTTP 客户端，需实现 `get/post/put/delete` |
 | `schemas` | `Schema[] \| Record<string, Schema>` | 否 | 预加载的 schema，传入后不会从后端加载 |
 

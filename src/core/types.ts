@@ -116,6 +116,13 @@ export interface Action {
   asyncCallback?: (model: Model, schemas?: Schema[], action?: Action) => Promise<void>
 }
 
+/** SchemaPage 默认 save action 暴露给 formSubmit 监听方的控制句柄。 */
+export interface FormSubmitControls {
+  resolve: () => void
+  reject: (err: any) => void
+  close: () => void
+}
+
 export interface Pagination {
   index: number
   size: number

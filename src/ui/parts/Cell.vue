@@ -18,6 +18,7 @@
 import { computed, inject } from 'vue'
 import ElTag from 'element-plus/es/components/tag/index.mjs'
 import type { Model, Schema } from '../../core/types'
+import { findOptionByValue, unwrapCellValue } from '../../core/model'
 import type { SchemaUIConfig } from '../../config'
 import { GLOBAL_CONFIG_KEY } from '../../config'
 import { createDefaultTranslator } from '../../core/i18n'
@@ -39,6 +40,26 @@ const t = (key: string, ...args: any[]) => {
   return fn(key, ...args)
 }
 
+function formatArrayValue(items: any[]): string {
+  return items
+    .map((item) => {
+      if (item && typeof item === 'object') {
+        const raw = unwrapCellValue(item)
+        const option = findOptionByValue(props.schema.attributes.values, raw)
+        if (option) return String(option.label ?? option.value ?? '')
+        if (item.label !== undefined && item.label !== null) return String(item.label)
+        if (item.value !== undefined && item.value !== null) return String(item.value)
+        return ''
+      }
+      const option = findOptionByValue(props.schema.attributes.values, item)
+      return option
+        ? String(option.label ?? option.value ?? '')
+        : item === null || item === undefined ? '' : String(item)
+    })
+    .filter((s) => s !== '')
+    .join(', ')
+}
+
 const rawValue = computed(() => {
   const val = props.model[props.schema.column]
   if (val === null || val === undefined) return ''
@@ -46,16 +67,25 @@ const rawValue = computed(() => {
   // 解成对象数组,每项形如 { label, value }。typeof [] === 'object' 且数组没有
   // .label/.value,直接走下面对象分支会被错误地退化成空串,导致整列渲染空白。
   // 先按数组分支把各项 label 拼成逗号串,再走 default 分支输出。
-  if (Array.isArray(val)) {
-    return val
-      .map((item) => (item && item.label) || String(item?.value ?? ''))
-      .filter((s) => s !== '')
-      .join(', ')
-  }
+  if (Array.isArray(val)) return formatArrayValue(val)
   if (typeof val === 'object') {
+    if (Array.isArray(val.value)) return formatArrayValue(val.value)
+    if (Array.isArray(val.label)) return formatArrayValue(val.label)
     return val.label || val.value || ''
   }
   return val
+})
+
+/**
+ * 用于匹配 attributes.values 的底层值。
+ * 列表接口 __format=both 会把单元格包成 { label, value }，这里必须用 value
+ * 去匹配选项；rawValue 是展示用 label，拿它匹配会永远对不上（颜色丢失、
+ * 数字型 live 选项显示原始 ID）。
+ */
+const optionValue = computed(() => {
+  const val = props.model[props.schema.column]
+  if (Array.isArray(val)) return val.map((item) => unwrapCellValue(item))
+  return unwrapCellValue(val)
 })
 
 function formatValueByFormat(value: any, format: string): string {
@@ -120,15 +150,19 @@ function formatValueByFormat(value: any, format: string): string {
 
 const displayValue = computed(() => {
   const values = props.schema.attributes.values
-  if (Array.isArray(values) && values.length > 0) {
-    const found = values.find((v) => v.value === String(rawValue.value))
+  const value = optionValue.value
+  if (!Array.isArray(value)) {
+    const found = findOptionByValue(values, value)
     if (found) return found.label
   }
   return formatValueByFormat(rawValue.value, props.schema.format)
 })
 
 const isTrue = computed(() => {
-  const val = props.model[props.schema.column]
+  const val = optionValue.value
+  if (typeof val === 'string') {
+    return !['false', '0', 'off', 'no', ''].includes(val.trim().toLowerCase())
+  }
   return !!val
 })
 
@@ -140,14 +174,12 @@ const tagVisible = computed(() => {
 })
 
 const textColor = computed(() => {
-  const val = rawValue.value
-  const found = props.schema.attributes.values?.find((v) => v.value === String(val))
+  const found = findOptionByValue(props.schema.attributes.values, optionValue.value)
   return found?.color || ''
 })
 
 const bgColor = computed(() => {
-  const val = rawValue.value
-  const found = props.schema.attributes.values?.find((v) => v.value === String(val))
+  const found = findOptionByValue(props.schema.attributes.values, optionValue.value)
   if (!found?.color) return ''
   return found.color + '1A'
 })

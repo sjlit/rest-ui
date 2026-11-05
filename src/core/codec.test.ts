@@ -74,11 +74,14 @@ test('encode decimal 字段：空 → 0', () => {
   assert.equal(encode({ price: 'NaN' }, schemas, 'create').price, 0)
 })
 
-test('encode boolean 字段：字符串 "true" / "on" → boolean true', () => {
+test('encode boolean 字段：字符串 true/false/on/off 显式映射', () => {
   const schemas = [schema({ column: 'enabled', type: 'boolean' })]
   assert.equal(encode({ enabled: 'true' }, schemas, 'create').enabled, true)
   assert.equal(encode({ enabled: 'on' }, schemas, 'create').enabled, true)
-  assert.equal(encode({ enabled: 'false' }, schemas, 'create').enabled, true) // Boolean('false') === true
+  assert.equal(encode({ enabled: '1' }, schemas, 'create').enabled, true)
+  assert.equal(encode({ enabled: 'false' }, schemas, 'create').enabled, false)
+  assert.equal(encode({ enabled: 'off' }, schemas, 'create').enabled, false)
+  assert.equal(encode({ enabled: '0' }, schemas, 'create').enabled, false)
 })
 
 test('encode boolean 字段空字符串 → 跳过', () => {

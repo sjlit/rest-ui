@@ -56,6 +56,11 @@
   padding-right: var(--su-space-3);
 }
 
+.mobile-select {
+  flex-shrink: 0;
+  margin-right: var(--su-space-2);
+}
+
 .mobile-actions {
   display: flex;
   gap: var(--su-space-1);

@@ -272,21 +272,31 @@ function handlePageChange(index: number) {
   handleSearch({})
 }
 
-async function handleFormSubmit(model: Model, scenario: string) {
-  if (scenario === 'create') {
-    await fetch('/rest/admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(model),
-    })
-  } else {
-    await fetch(`/rest/admin/${model.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(model),
-    })
+async function handleFormSubmit(
+  model: Model,
+  scenario: string,
+  controls?: { resolve: () => void; reject: (err: any) => void; close: () => void },
+) {
+  try {
+    if (scenario === 'create') {
+      await fetch('/rest/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(model),
+      })
+    } else {
+      await fetch(`/rest/admin/${model.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(model),
+      })
+    }
+    controls?.resolve()
+    controls?.close()
+    handleSearch({})
+  } catch (err) {
+    controls?.reject(err)
   }
-  handleSearch({})
 }
 
 async function handleDelete(model: Model) {
@@ -307,6 +317,8 @@ loadSchemas()
 | `openEdit(model)` | `Model` | 打开编辑弹窗/抽屉 |
 | `openDetail(model)` | `Model` | 打开详情弹窗/抽屉 |
 | `closeForm()` | - | 关闭表单弹窗/抽屉 |
+| `resolveFormSubmit()` | - | 结束内置 save 的 loading 并 resolve（旧用法；推荐用 formSubmit 的 controls） |
+| `rejectFormSubmit(err)` | `any` | 结束 loading 并 reject（旧用法） |
 
 ```vue
 <template>
@@ -454,21 +466,25 @@ function handleSort({ column, order }: { column: string; order: string | null })
 ```vue
 <template>
   <SchemaForm
+    ref="formRef"
     :schemas="schemas"
     scenario="create"
     :model="initialModel"
-    @submit="handleSubmit"
   />
+  <el-button type="primary" @click="handleSubmit">提交</el-button>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { SchemaForm } from '@sjlit/rest-ui'
 import type { Schema, Model } from '@sjlit/rest-ui'
 
 const schemas: Schema[] = [/* ... */]
 const initialModel: Model = { status: 'active' }
+const formRef = ref<InstanceType<typeof SchemaForm> | null>(null)
 
-function handleSubmit(model: Model, displaySchemas: Schema[]) {
+async function handleSubmit() {
+  const model = await formRef.value?.submit()
   console.log('Submit:', model)
 }
 </script>

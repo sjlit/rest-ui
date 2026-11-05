@@ -49,14 +49,42 @@ export function generateSchemaRule(
       message: t('validation.type', schema.label),
       trigger: 'blur',
     })
+  } else if (
+    ['integer', 'float', 'decimal', 'double'].includes(schema.type) ||
+    ['integer', 'float', 'decimal'].includes(schema.format)
+  ) {
+    // rest 的 Rule.Type 目前不会写入 schema，数字字段如果完全交给 encode
+    // 会静默把 'abc' 兜底成 0。这里补一个“空值放行、非空必须是数字”的
+    // 校验，避免用户输入被悄悄写错。
+    rules.push({
+      validator: (_rule: any, value: any, callback: (err?: Error) => void) => {
+        if (value === '' || value === null || value === undefined) {
+          callback()
+          return
+        }
+        const num = Number(value)
+        if (Number.isFinite(num)) callback()
+        else callback(new Error(t('validation.type', schema.label)))
+      },
+      trigger: 'blur',
+    })
   }
 
   if (rule.regular) {
-    rules.push({
-      pattern: new RegExp(rule.regular),
-      message: t('validation.pattern', schema.label),
-      trigger: 'blur',
-    })
+    try {
+      rules.push({
+        pattern: new RegExp(rule.regular),
+        message: t('validation.pattern', schema.label),
+        trigger: 'blur',
+      })
+    } catch (err) {
+      // 后端来自 Go RE2，语法与 JS 并不完全兼容（例如 (?i) 内联 flag）。
+      // 非法正则只跳过该条规则，不能让整个表单 computed 崩掉。
+      console.warn(
+        `[rest-ui] invalid regular expression for "${schema.column}": ${rule.regular}`,
+        err,
+      )
+    }
   }
 
   return rules
@@ -114,6 +142,22 @@ export function clearSearchModel(
 }
 
 /**
+ * 判断 schema 是否属于指定场景。
+ *
+ * rest/v3 的 canonical scenario 是 detail，但历史 admin 模型大量使用
+ * scenarios:"view"。这里把 view 当作 detail 的别名，避免存量 sys_schemas
+ * 里的详情字段在 UI 上被再次过滤掉。rest 服务端也需要做同样兼容。
+ */
+function matchesScenario(schema: Schema, scenario: Scenario): boolean {
+  if (!Array.isArray(schema.scenarios)) return false
+  if (schema.scenarios.includes(scenario)) return true
+  if (scenario === 'detail' && (schema.scenarios as string[]).includes('view')) {
+    return true
+  }
+  return false
+}
+
+/**
  * 按场景过滤可见的 schema 列表
  */
 export function filterByScenario(
@@ -126,8 +170,7 @@ export function filterByScenario(
 ): Schema[] {
   return schemas.filter((schema) => {
     if (schema.enable === 0) return false
-    if (!Array.isArray(schema.scenarios)) return false
-    if (!schema.scenarios.includes(scenario)) return false
+    if (!matchesScenario(schema, scenario)) return false
     if (!options?.includeInvisible && schema.attributes.invisible) return false
     if (options?.visibleCheck && !options.visibleCheck(schema)) return false
     return true

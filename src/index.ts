@@ -22,6 +22,7 @@ export type {
   Scenario,
   Sortable,
   CRUDOptions,
+  FormSubmitControls,
 } from './core/types'
 // 透传 element-plus 的尺寸 / 按钮类型联合,供 Action.type / Action.size / SchemaGrid.size 等 prop 用。
 // 从 '@sjlit/rest-ui' 一处取,避免消费方被迫多引一个 element-plus 依赖。
@@ -60,8 +61,9 @@ export {
 // === Core Utils ===
 export { Scenarios } from './core/scenarios'
 export { encode, decode } from './core/codec'
-export { getModelValue, getModelLabel } from './core/model'
+export { getModelValue, getModelLabel, unwrapCellValue, findOptionByValue, cloneModel } from './core/model'
 export { generateSchemaRule, checkSchemaVisible, clearSearchModel, filterByScenario } from './core/form'
+export { isActionPermitted, isActionVisibleSync, resolveActions } from './core/actions'
 export { createDefaultTranslator } from './core/i18n'
 
 // === UI Components ===

@@ -45,8 +45,9 @@
           </template>
         </SchemaGrid>
         <div v-if="showPagination" class="schema-page-pagination">
-          <el-pagination :page-size="pagination.size" :total="pagination.totalCount"
-            :current-page="pagination.index" layout="total, prev, pager, next" @current-change="handlePageChange" />
+          <el-pagination :page-size="pagination.size" :page-sizes="pageSizes" :total="pagination.totalCount"
+            :current-page="pagination.index" :layout="paginationLayout" @current-change="handlePageChange"
+            @size-change="handleSizeChange" />
         </div>
       </div>
     </div>
@@ -88,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, inject } from 'vue'
+import { ref, computed, watch, inject, onMounted, onUnmounted } from 'vue'
 import ElButton from 'element-plus/es/components/button/index.mjs'
 import { ElDescriptions, ElDescriptionsItem } from 'element-plus/es/components/descriptions/index.mjs' // DescriptionsItem 与 Descriptions 同源
 import ElDialog from 'element-plus/es/components/dialog/index.mjs'
@@ -102,9 +103,11 @@ import { vLoading } from 'element-plus/es/components/loading/index.mjs'
 // 深层路径与 `unplugin-vue-components` 的 ElementPlusResolver 内部使用的路径一致,
 // 已经被证实可被 rollup treeshake。
 import { More } from '@element-plus/icons-vue'
-import type { Schema, Model, Action as ActionType, Pagination as PaginationType, Scenario } from '../core/types'
+import type { Schema, Model, Action as ActionType, Pagination as PaginationType, Scenario, FormSubmitControls } from '../core/types'
 import type { SchemaUIConfig } from '../config'
 import { filterByScenario } from '../core/form'
+import { resolveActions, isActionVisibleSync, isActionPermitted } from '../core/actions'
+import { cloneModel } from '../core/model'
 import { createDefaultTranslator } from '../core/i18n'
 import { GLOBAL_CONFIG_KEY } from '../config'
 import SchemaForm from './SchemaForm.vue'
@@ -124,6 +127,8 @@ interface Props {
   showSearch?: boolean
   showToolbar?: boolean
   showPagination?: boolean
+  showPageSize?: boolean
+  pageSizes?: number[]
   readonly?: boolean
   searchActions?: ActionType[]
   rowActions?: ActionType[]
@@ -143,6 +148,8 @@ const props = withDefaults(defineProps<Props>(), {
   showSearch: true,
   showToolbar: true,
   showPagination: true,
+  showPageSize: true,
+  pageSizes: () => [10, 15, 30, 50, 100],
   readonly: false,
   searchActions: () => [],
   rowActions: () => [],
@@ -162,7 +169,8 @@ const emit = defineEmits<{
   pageChange: [index: number]
   sortChange: [sortable: { column: string; order: 'ascending' | 'descending' | null }]
   selectionChange: [selection: any[]]
-  formSubmit: [model: Model, scenario: Scenario]
+  formSubmit: [model: Model, scenario: Scenario, controls?: FormSubmitControls]
+  sizeChange: [size: number]
 }>()
 
 const globalConfig = inject<SchemaUIConfig | null>(GLOBAL_CONFIG_KEY, null)
@@ -204,14 +212,34 @@ const formTitle = computed(() => {
 
 const detailTitle = computed(() => t('form.detail'))
 
+const viewportWidth = ref(typeof window === 'undefined' ? 1200 : window.innerWidth)
+
+function syncViewportWidth() {
+  if (typeof window !== 'undefined') viewportWidth.value = window.innerWidth
+}
+
+onMounted(() => {
+  syncViewportWidth()
+  window.addEventListener('resize', syncViewportWidth)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', syncViewportWidth)
+})
+
 const formWidth = computed(() => {
-  if (typeof window === 'undefined') return '60%'
-  const width = window.innerWidth
+  const width = viewportWidth.value
   if (width < 768) return '96%'
   if (width <= 1180) return '80%'
   if (width <= 1366) return '60%'
   return '40%'
 })
+
+const paginationLayout = computed(() =>
+  props.showPageSize
+    ? 'total, sizes, prev, pager, next'
+    : 'total, prev, pager, next',
+)
 
 const searchActionList = computed((): ActionType[] => {
   if (props.searchActions.length > 0) return props.searchActions
@@ -228,15 +256,40 @@ const searchActionList = computed((): ActionType[] => {
 })
 
 const rowActionList = computed((): ActionType[] => {
-  if (props.readonly) return []
-  if (props.rowActions.length > 0) return props.rowActions
-  return [
-    { name: 'edit', label: t('action.edit'), type: 'success', callback: (model) => handleEdit(model) },
-    { name: 'delete', label: t('action.delete'), type: 'danger', callback: (model) => emit('delete', model) },
-  ]
+  const view: ActionType = {
+    name: 'view',
+    label: t('action.view'),
+    type: 'info',
+    callback: (model) => handleDetail(model as Model),
+  }
+  const edit: ActionType = {
+    name: 'edit',
+    label: t('action.edit'),
+    type: 'success',
+    callback: (model) => handleEdit(model as Model),
+  }
+  const del: ActionType = {
+    name: 'delete',
+    label: t('action.delete'),
+    type: 'danger',
+    callback: (model) => emit('delete', model as Model),
+  }
+  const defaults = [view, edit, del]
+  const lookup = { view, edit, delete: del }
+  // readonly 保留查看详情，只隐藏写操作
+  return resolveActions(
+    props.rowActions,
+    props.readonly ? [view] : defaults,
+    lookup,
+    true,
+  )
 })
 
-const batchActionList = computed((): ActionType[] => props.batchActions)
+const batchActionList = computed((): ActionType[] =>
+  props.batchActions.filter((action) =>
+    isActionVisibleSync(action, selections.value as any, globalConfig),
+  ),
+)
 
 // Promise-based submit mechanism: the save action's asyncCallback returns
 // a Promise that resolves when the parent (SchemaViewer) completes the API call.
@@ -268,17 +321,25 @@ const formActionList = computed((): ActionType[] => {
       type: 'primary',
       asyncCallback: async (model) => {
         formSubmitting.value = true
-        emit('formSubmit', model, formScenario.value)
-        // Wait for the parent to resolve/reject (via resolveFormSubmit/rejectFormSubmit)
+        // 先注册 resolver 再 emit，保证父组件在事件回调里同步调用 controls.resolve()
+        // 也能正确结束 loading。
         return new Promise<void>((resolve, reject) => {
-          formSubmitResolve = () => {
-            formSubmitting.value = false
-            resolve()
+          const controls: FormSubmitControls = {
+            resolve: () => {
+              formSubmitting.value = false
+              resolve()
+            },
+            reject: (err: any) => {
+              formSubmitting.value = false
+              reject(err)
+            },
+            close: () => {
+              formVisible.value = false
+            },
           }
-          formSubmitReject = (err: any) => {
-            formSubmitting.value = false
-            reject(err)
-          }
+          formSubmitResolve = controls.resolve
+          formSubmitReject = controls.reject
+          emit('formSubmit', model, formScenario.value, controls)
         })
       },
     },
@@ -294,17 +355,13 @@ function handleCreate() {
 
 function handleEdit(model: Model) {
   formScenario.value = 'update'
-  formModel.value = typeof structuredClone === 'function'
-    ? structuredClone(model)
-    : JSON.parse(JSON.stringify(model))
+  formModel.value = cloneModel(model)
   emit('edit', model)
   formVisible.value = true
 }
 
 function handleDetail(model: Model) {
-  detailModel.value = typeof structuredClone === 'function'
-    ? structuredClone(model)
-    : JSON.parse(JSON.stringify(model))
+  detailModel.value = cloneModel(model)
   detailVisible.value = true
 }
 
@@ -312,12 +369,13 @@ function closeForm() {
   formVisible.value = false
 }
 
-function handleBatchAction(action: ActionType) {
-  // 与 SchemaGrid.handleActionClick 保持一致:同时支持 callback 与 asyncCallback。
-  // 仅处理 callback 会导致消费方只用 asyncCallback(典型:批量导出、批量归档需要
-  // await httpClient)时按钮静默 no-op。
+function executeBatchAction(action: ActionType) {
   if (typeof action.callback === 'function') {
-    action.callback(selections.value, props.schemas)
+    try {
+      action.callback(selections.value, props.schemas)
+    } catch (err) {
+      console.error('[SchemaPage] batch action failed:', err)
+    }
   } else if (typeof action.asyncCallback === 'function') {
     action
       .asyncCallback(selections.value, props.schemas)
@@ -328,6 +386,35 @@ function handleBatchAction(action: ActionType) {
         console.error('[SchemaPage] batch action failed:', err)
       })
   }
+}
+
+function handleBatchAction(action: ActionType) {
+  // 与 SchemaGrid.handleActionClick 保持一致:同时支持 callback 与 asyncCallback。
+  // 仅处理 callback 会导致消费方只用 asyncCallback(典型:批量导出、批量归档需要
+  // await httpClient)时按钮静默 no-op。
+  if (!isActionPermitted(action, globalConfig)) return
+
+  const hidden = action.hidden
+  if (typeof hidden === 'function') {
+    try {
+      const result = hidden(selections.value as any)
+      if (result instanceof Promise) {
+        result
+          .then((isHidden) => {
+            if (!isHidden) executeBatchAction(action)
+          })
+          .catch((err) => console.error('[SchemaPage] batch hidden check failed:', err))
+        return
+      }
+      if (result) return
+    } catch (err) {
+      console.error('[SchemaPage] batch hidden check failed:', err)
+      return
+    }
+  } else if (hidden) {
+    return
+  }
+  executeBatchAction(action)
 }
 
 function handleSelectionChange(selection: any[]) {
@@ -341,6 +428,10 @@ function handleSortChange(e: { column: string; order: 'ascending' | 'descending'
 
 function handlePageChange(index: number) {
   emit('pageChange', index)
+}
+
+function handleSizeChange(size: number) {
+  emit('sizeChange', size)
 }
 
 defineExpose({

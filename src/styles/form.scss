@@ -3,6 +3,16 @@
 .schema-form {
   padding: var(--su-padding);
 
+  .schema-form-error {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-radius: var(--el-border-radius-base, 4px);
+    color: var(--el-color-danger, #f56c6c);
+    background: var(--el-color-danger-light-9, #fef0f0);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
   .el-form--inline {
     display: flex;
     flex-wrap: wrap;

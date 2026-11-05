@@ -14,9 +14,15 @@ export const defaultMessages: Record<string, string | ((...args: string[]) => st
   'action.export': '导出',
   'action.confirm': '确定',
   'action.cancel': '取消',
+  'action.upload': '上传',
 
   'boolean.true': '是',
   'boolean.false': '否',
+
+  'confirm.delete.title': '提示',
+  'confirm.delete.message': '确认删除该数据?',
+  'error.save': '保存失败',
+  'error.validation': '验证失败',
 
   'form.create': '创建',
   'form.edit': '编辑',

@@ -117,3 +117,190 @@ test('initialize 在无 module 时 URI 仍正确', async () => {
   await crud.initialize()
   assert.deepEqual(calls, ['/schema/profile'])
 })
+
+const localSchema = (column: string, extra: Record<string, any> = {}): any => ({
+  column,
+  primary_key: column === 'id' ? 1 : 0,
+  scenarios: ['list', 'detail', 'create', 'update'],
+  rules: {},
+  attributes: {
+    invisible: false,
+    readonly: [],
+    disable: [],
+    visible: [],
+    values: [],
+    live: { enable: false, type: '' },
+  },
+  ...extra,
+})
+
+test('CRUDOptions.schemas 预加载：不请求 /schema，主键可用', async () => {
+  const calls: string[] = []
+  const crud = new CRUD({
+    module: 'm',
+    table: 't',
+    httpClient: {
+      ...noopHttp,
+      get: async (url: string) => {
+        calls.push(url)
+        return []
+      },
+    },
+    schemas: [localSchema('id'), localSchema('name')],
+  })
+  const schemas = await crud.initialize()
+  assert.equal(schemas.length, 2)
+  assert.equal(crud.primaryKey, 'id')
+  assert.deepEqual(calls, [])
+})
+
+test('__fetchVars 合并 live 选项不依赖 schema.id，且单点失败不影响初始化', async () => {
+  const schemas = [
+    localSchema('a', {
+      attributes: {
+        invisible: false,
+        readonly: [],
+        disable: [],
+        visible: [],
+        live: { enable: true, type: 'dropdown', url: '/live/a' },
+      },
+    }),
+    localSchema('b', {
+      attributes: {
+        invisible: false,
+        readonly: [],
+        disable: [],
+        visible: [],
+        live: { enable: true, type: 'dropdown', url: '/live/b' },
+      },
+    }),
+  ]
+  const crud = new CRUD({
+    module: 'm',
+    table: 't',
+    schemas,
+    httpClient: {
+      ...noopHttp,
+      get: async (url: string) => {
+        if (url === '/live/a') return [{ label: 'A', value: 'a' }]
+        throw new Error('live b down')
+      },
+    },
+  })
+  const warn = console.error
+  console.error = () => {}
+  try {
+    await crud.initialize()
+  } finally {
+    console.error = warn
+  }
+  assert.deepEqual(crud.schemas[0].attributes.values, [{ label: 'A', value: 'a' }])
+  assert.deepEqual(crud.schemas[1].attributes.values, [])
+})
+
+test('createModel 兼容非 id 主键与 rest 的 {id} 响应', async () => {
+  const gets: string[] = []
+  const crud = new CRUD({
+    module: 'm',
+    table: 't',
+    schemas: [localSchema('uuid')],
+    httpClient: {
+      ...noopHttp,
+      post: async () => ({ id: 'abc' }),
+      get: async (url: string) => {
+        gets.push(url)
+        return { uuid: 'abc', name: 'x' }
+      },
+    },
+  })
+  crud.primaryKey = 'uuid'
+  const model = await crud.createModel({ name: 'x' })
+  assert.equal(model.uuid, 'abc')
+  assert.deepEqual(gets, ['m/t/detail/abc'])
+})
+
+test('deleteModels 兼容数字主键与字符串主键，并移除行', async () => {
+  const crud = new CRUD({
+    module: 'm',
+    table: 't',
+    httpClient: {
+      ...noopHttp,
+      delete: async () => ({ id: 7 }),
+    },
+  })
+  crud.primaryKey = 'id'
+  crud.models = [{ id: 7 }, { id: 8 }]
+  const result = await crud.deleteModels([{ id: 7 }])
+  assert.equal(result.success, 1)
+  assert.deepEqual(crud.models, [{ id: 8 }])
+})
+
+test('searchModel 兼容 AxiosResponse 并忽略过期响应', async () => {
+  let resolveFirst: ((v: any) => void) | null = null
+  const crud = new CRUD({
+    module: 'm',
+    table: 't',
+    httpClient: {
+      ...noopHttp,
+      get: (() => {
+        let call = 0
+        return async () => {
+          call++
+          if (call === 1) {
+            return new Promise((resolve) => { resolveFirst = resolve })
+          }
+          return { page: 1, page_size: 15, total_count: 20, data: [{ id: 2 }] }
+        }
+      })(),
+    },
+  })
+  const first = crud.searchModel()
+  const second = crud.searchModel()
+  await second
+  resolveFirst!({ page: 0, page_size: 15, total_count: 1, data: [{ id: 1 }] })
+  await first
+  assert.deepEqual(crud.models, [{ id: 2 }])
+  assert.equal(crud.pagination.index, 2)
+})
+
+test('exportModels 带上 fixedQuery 并兼容 AxiosResponse/Blob', async () => {
+  const requests: any[] = []
+  let downloaded: any = null
+  const crud = new CRUD({
+    module: 'm',
+    table: 't',
+    httpClient: {
+      ...noopHttp,
+      get: async (_url: string, config: any) => {
+        requests.push(config)
+        return { data: new Blob(['a,b']), headers: { 'content-disposition': 'attachment;filename=x.csv' } }
+      },
+    },
+  })
+  crud.setFixedQuery({ tenant_id: 't1' })
+  ;(crud as any).__downloadFile = (res: any, name: string) => { downloaded = { res, name } }
+  await crud.exportModels()
+  assert.equal(requests[0].params.tenant_id, 't1')
+  assert.equal(requests[0].responseType, 'blob')
+  assert.equal(downloaded.name, 't.csv')
+})
+
+test('getModel 默认请求 raw，且允许调用方覆盖 __format', async () => {
+  const requests: any[] = []
+  const crud = new CRUD({
+    module: 'm',
+    table: 't',
+    httpClient: {
+      ...noopHttp,
+      get: async (_url: string, config: any) => {
+        requests.push(config)
+        return { id: 1 }
+      },
+    },
+  })
+  crud.primaryKey = 'id'
+  await crud.getModel('1')
+  assert.equal(requests[0].params.__format, 'raw')
+  await crud.getModel({ id: 1, __format: 'both', scenario: 'update' })
+  assert.equal(requests[1].params.__format, 'both')
+})
