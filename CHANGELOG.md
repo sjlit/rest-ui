@@ -1,5 +1,74 @@
 # Changelog
 
+## [1.2.0] - 2026-11-05
+
+### Bug Fixes
+
+- **`CRUDOptions.schemas` 预加载完全没有生效**。
+  - 根因：构造函数只把 schema 放进 `opts.schemas`，没有赋给 `this.schemas`，`initialize()` 仍然请求 `/schema/:module/:table`。
+  - 修复：预加载 schema 现在会正常落到 `this.schemas`，并统一克隆 `attributes/values/live`；`SchemaViewer` 的 `config.schemas` 也会走预加载路径。
+
+- **codec 的 time / date / boolean / timestamp / multiSelect 编解码**。
+  - `time` 字段此前 `new Date('10:30')` 得到 Invalid Date，编辑和保存都会丢值；现在支持纯时间解析，表单改用 `el-time-picker` 且保留秒。
+  - 纯日期 `YYYY-MM-DD` 改为本地时间解析，修复负时区下编辑日期偏移一天。
+  - `'false'` / `'0'` / `'off'` 不再被 `Boolean()` 翻成 `true`，create 的 `default_value: 'false'` 也按 false 处理。
+  - `format=timestamp` + 整型字段提交 Unix 秒，不再提交格式化字符串导致 Go int64 反序列化失败。
+  - multiSelect 更新时清空会提交 `'[]'`，不再跳过字段导致旧值清不掉。
+  - `decode(search)` 正确回显 `start/end`、`start,end` 和单日期。
+  - `decode` 自动解包 `__format=both` 的 `{ label, value }` 单元格，列表行可直接进入编辑表单。
+
+- **`CRUD` 响应契约与导出**。
+  - `initialize/getModel/searchModel/createModel/deleteModel` 统一兼容“已解包数据”和 AxiosResponse。
+  - `getModel` 默认附加 `__format=raw`，避免编辑表单拿到 dropdown 的展示 label。
+  - `exportModels` 补上 `fixedQuery`，并兼容 Blob / AxiosResponse / string；修复 admin 等解包 httpClient 下导出必失败的问题。
+  - `createModel` 兼容非 `id` 主键（回退 `res.id`）。
+  - `deleteModels` 用字符串比较主键，修复数字/字符串主键批量删除后行不移除；返回值新增 `failed`。
+  - 主键拼 URL 时做 `encodeURIComponent`，并支持主键 `0`。
+
+- **live 数据源和保存后的刷新**。
+  - `__fetchVars` 改为 `Promise.allSettled`，单个 live 接口失败不再让整页初始化失败。
+  - 不再用 `schema.id` 合并选项，避免预加载 schema 没有 id 时选项串台。
+  - 保存后的详情/live 刷新失败不会再把已经成功的写入报成“保存失败”。
+
+- **`SchemaPage` 响应式行克隆和保存流程**。
+  - 修复 Vue `ref/reactive` 行被 `structuredClone` 时抛 `DataCloneError`；统一走 `toRaw` + 安全回退。
+  - 默认 save action 的 `formSubmit` 增加第三个参数 `{ resolve, reject, close }`；不传控制句柄的旧用法仍保留 `resolveFormSubmit/rejectFormSubmit`。
+  - `readonly` 保留“查看详情”，不再把所有行操作一起隐藏。
+  - `rowActions` 字符串引用现在按默认 action 解析；`SchemaPage` 与 `SchemaViewer` 的 action 合并语义统一。
+  - `SchemaPage` 默认行操作补充“查看”。
+
+- **`Action`、移动端和 `Cell` 显示**。
+  - `Action.permission` / `hasPermission` 真正参与渲染过滤；`hidden` 不再只在点击时判断，异步 hidden 采用 fail-closed。
+  - 批量 action 同样做权限/隐藏判断。
+  - 移动端折叠列表增加 selection checkbox，批量操作不再永远拿到空选择；同时修复折叠标题内 action 点击冒泡和按索引绑定 key 的问题。
+  - `Cell` 修复 `__format=both` 下拉标签/颜色匹配：彩色枚举标签恢复颜色，数字型 live 选项显示 label 而不是原始 ID，数组/multiSelect 逐项映射。
+  - `SchemaGrid` 移动端主字段支持数组 label，不再出现 `undefined`。
+
+- **错误处理、竞态与体验**。
+  - `SchemaForm` 先校验再 encode，补数字字段的“非空必须是数字”校验，避免非法输入被静默写成 0。
+  - `fieldErrors['*']` 现在会在表单内显示，不再只写进一个匹配不到的字段。
+  - `SchemaForm` / `SchemaGrid` / `SchemaViewer` 的异步 action 补 `catch`，避免 unhandled rejection。
+  - `CRUD.searchModel` 和 `SchemaViewer.init` 增加请求序号，旧请求不会覆盖新请求。
+  - 分页补 `showPageSize/pageSizes/sizeChange`，`defaultPageSize` 生效；`SchemaPage.formWidth` 随窗口 resize。
+  - 删除确认、保存失败、验证失败、上传按钮接入 i18n。
+  - `SchemaUIConfig.upload` 支持注入上传请求头，解决 `el-upload` 绕过 httpClient 导致 JWT 接口 401。
+  - 场景过滤兼容后端历史 `view` 场景作为 `detail` 别名（配合 rest v3.1.1）。
+
+### Features
+
+- 新增导出：`FormSubmitControls`、`unwrapCellValue`、`findOptionByValue`、`cloneModel`、`isActionPermitted`、`isActionVisibleSync`、`resolveActions`。
+- `SchemaPage` 新增 `showPageSize`、`pageSizes` props 和 `sizeChange` 事件。
+- `SchemaUIConfig` 新增 `upload` 配置。
+
+### Behavior Changes
+
+- `CRUD.getModel` 默认附加 `__format=raw`；需要展示格式化值时显式传 `__format`。
+- `SchemaPage.readonly` 现在保留 view，只隐藏写操作。
+- `SchemaPage` 自定义 `rowActions` 会与默认 action 合并，不再完全替换。
+- `SchemaForm` 改为先校验后 encode；`default_value` 只在 create 场景应用。
+- `deleteModels` 返回值新增 `failed` 字段。
+- `format=timestamp` 的整型字段提交 Unix 秒；multiSelect 更新清空提交 `'[]'`。
+
 ## [1.1.6] - 2026-08-24
 
 ### Bug Fixes
