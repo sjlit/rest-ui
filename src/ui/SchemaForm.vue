@@ -227,6 +227,8 @@ async function submit(): Promise<Model> {
 
   const model = encode(activeModel.value, displayColumns.value, props.scenario)
   if (props.model) {
+    // 主键通常不在 update/create 场景里，但更新仍需要它构建 URI。
+    // props.schemas 必须是完整 schema 列表，不能只传按场景过滤后的子集。
     const pkSchema = props.schemas.find((s) => s.primary_key === 1)
     if (pkSchema && pkSchema.column in props.model) {
       model[pkSchema.column] = unwrapCellValue(props.model[pkSchema.column])

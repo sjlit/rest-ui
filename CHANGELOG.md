@@ -17,6 +17,7 @@
 
 ### Fixes
 
+- **编辑保存报 `Cannot find model primary key`**：`SchemaPage` 之前把按场景过滤后的 schema 传给 `SchemaForm`，主键元数据被过滤掉，提交模型丢失 `id`（或其它主键），`CRUD.updateModel` 在发请求前抛错。现在改传完整 schema，由 `SchemaForm` 内部按 `scenario` 过滤展示字段，同时用完整列表里的 `primary_key` 把主键补回提交模型。
 - **分页总数一直显示 0**：`CRUD.pagination` 改为 `reactive`，组件 computed 能跟踪 `totalCount` 变化。
 - **移除筛选 chip 后不重新查询**：`SchemaForm` 暴露 `runAction()`，执行“校验 + encode + action”完整链路；筛选移除/重置后复用该链路。
 - **抽屉表单仍为单列**：`SchemaForm` 用 `ResizeObserver` 跟踪实际容器宽度，抽屉动画结束后正确按两列布局；小于 480px 自动单列。

@@ -22,10 +22,14 @@
       <div v-if="showSearch" class="schema-page-search">
         <div v-if="searchCollapsible" class="schema-search-summary">
           <el-button class="schema-search-toggle" :class="{ 'is-open': searchOpen }" @click="toggleSearch">
-            <el-icon><Filter /></el-icon>
+            <el-icon>
+              <Filter />
+            </el-icon>
             <span>{{ t('search.filter') }}</span>
             <span v-if="activeFilters.length" class="schema-search-count">{{ activeFilters.length }}</span>
-            <el-icon class="schema-search-chevron"><ArrowDown /></el-icon>
+            <el-icon class="schema-search-chevron">
+              <ArrowDown />
+            </el-icon>
           </el-button>
 
           <div v-if="activeFilters.length" class="schema-search-chips">
@@ -59,8 +63,7 @@
               {{ t('toolbar.selected', String(selections.length)) }}
             </span>
             <el-button v-for="action in batchActionList" :key="action.name" size="small"
-              :type="action.type || 'default'" :plain="isPlainAction(action)"
-              @click="handleBatchAction(action)">
+              :type="action.type || 'default'" :plain="isPlainAction(action)" @click="handleBatchAction(action)">
               {{ action.label }}
             </el-button>
             <el-button link size="small" @click="clearSelection">
@@ -88,7 +91,9 @@
           <el-popover v-if="showColumnSettings" placement="bottom-end" :width="188" trigger="click">
             <template #reference>
               <el-button size="small" text bg>
-                <el-icon><Setting /></el-icon>
+                <el-icon>
+                  <Setting />
+                </el-icon>
                 {{ t('columns.title') }}
               </el-button>
             </template>
@@ -107,8 +112,8 @@
       <div class="schema-page-grid" v-loading="loading">
         <SchemaGrid ref="gridRef" :schemas="displaySchemas" :models="models" scenario="list" :actions="rowActionList"
           :row-key="primaryKey" :actions-label="t('table.actions')" :actions-width="actionsWidth"
-          :table-height="resolvedTableHeight" :empty-text="t('table.empty')" :size="density" v-bind="gridProps"
-          @selection="handleSelectionChange" @sort="handleSortChange">
+          :empty-text="t('table.empty')" :size="density" v-bind="gridProps" @selection="handleSelectionChange"
+          @sort="handleSortChange">
           <template #default="{ model, schema }">
             <slot name="gridview" :model="model" :schema="schema" />
           </template>
@@ -123,7 +128,9 @@
 
     <el-dialog v-if="formMode === 'dialog'" v-model="formVisible" :title="formTitle" :width="formWidth" draggable
       destroy-on-close>
-      <SchemaForm v-bind="resolvedFormProps" :schemas="formSchemas" :scenario="formScenario" :model="formModel"
+      <!-- 必须传完整 schemas：SchemaForm 会按 scenario 自行过滤字段，
+           同时需要完整列表里的 primary_key 元数据把主键补回提交模型。 -->
+      <SchemaForm v-bind="resolvedFormProps" :schemas="props.schemas" :scenario="formScenario" :model="formModel"
         :actions="formActionList" :errors="formErrors">
         <template #default="{ model, schema }">
           <slot name="crudform" :model="model" :schema="schema" />
@@ -131,7 +138,7 @@
       </SchemaForm>
     </el-dialog>
     <el-drawer v-else v-model="formVisible" :title="formTitle" :size="drawerWidth" destroy-on-close>
-      <SchemaForm v-bind="resolvedFormProps" :schemas="formSchemas" :scenario="formScenario" :model="formModel"
+      <SchemaForm v-bind="resolvedFormProps" :schemas="props.schemas" :scenario="formScenario" :model="formModel"
         :actions="formActionList" :errors="formErrors">
         <template #default="{ model, schema }">
           <slot name="crudform" :model="model" :schema="schema" />
@@ -162,8 +169,7 @@
         </span>
         <div class="schema-mobile-batch-actions">
           <el-button v-for="action in batchActionList" :key="`mobile-${action.name}`" size="small"
-            :type="action.type || 'default'" :plain="isPlainAction(action)"
-            @click="handleBatchAction(action)">
+            :type="action.type || 'default'" :plain="isPlainAction(action)" @click="handleBatchAction(action)">
             {{ action.label }}
           </el-button>
           <el-button link size="small" @click="clearSelection">
@@ -329,9 +335,6 @@ const listSchemas = computed(() =>
 const displaySchemas = computed(() =>
   listSchemas.value.filter((schema) => !hiddenColumns.value.includes(schema.column))
 )
-const formSchemas = computed(() =>
-  filterByScenario(props.schemas, formScenario.value)
-)
 const detailSchemas = computed(() =>
   filterByScenario(props.schemas, 'detail')
 )
@@ -347,7 +350,6 @@ const formTitle = computed(() => {
 const detailTitle = computed(() => t('form.detail'))
 
 const viewportWidth = ref(typeof window === 'undefined' ? 1200 : window.innerWidth)
-const viewportHeight = ref(typeof window === 'undefined' ? 900 : window.innerHeight)
 const isMobile = computed(() => viewportWidth.value <= 768)
 
 // 桌面/移动端切换会更换整个表格实现，旧勾选无法映射到新视图，直接清空。
@@ -358,7 +360,6 @@ watch(isMobile, () => {
 function syncViewportWidth() {
   if (typeof window === 'undefined') return
   viewportWidth.value = window.innerWidth
-  viewportHeight.value = window.innerHeight
 }
 
 // ── 列显示 / 密度持久化 ────────────────────────────────
@@ -449,14 +450,6 @@ const detailWidth = computed(() =>
 )
 
 const detailColumns = computed(() => (viewportWidth.value < 768 ? 1 : 2))
-
-const resolvedTableHeight = computed(() => {
-  if (props.tableHeight !== '' && props.tableHeight !== undefined) {
-    return props.tableHeight
-  }
-  if (!props.autoTableHeight || isMobile.value) return ''
-  return Math.max(280, viewportHeight.value - props.tableHeightOffset)
-})
 
 const paginationLayout = computed(() => {
   // 移动端宽度放不下 sizes + jumper，收敛成 total + 页码，避免横向被裁切。

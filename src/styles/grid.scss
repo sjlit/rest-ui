@@ -20,7 +20,7 @@
      提高选择器权重是为了压过消费方主题里的
      `.el-table__row td.el-table__cell { background: transparent }`。 */
   .el-table__body-wrapper td.el-table-fixed-column--right,
-  .el-table__body-wrapper tr:hover > td.el-table-fixed-column--right {
+  .el-table__body-wrapper tr:hover>td.el-table-fixed-column--right {
     background: var(--el-bg-color-overlay, #fff) !important;
   }
 
@@ -94,7 +94,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding-right: var(--su-space-3);
+  padding-left: var(--su-space-2);
+  padding-right: var(--su-space-1);
 }
 
 .mobile-select {
