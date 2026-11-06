@@ -3,7 +3,7 @@
 .schema-page-grid {
   th.el-table__cell {
     color: var(--su-text-color-primary);
-    background-color: #f9fbfd;
+    background-color: var(--el-table-header-bg-color, #f9fbfd);
   }
 
   td.el-table__cell {
@@ -13,6 +13,52 @@
   .cell {
     a {
       color: var(--su-text-color-link);
+    }
+  }
+
+  /* 固定列必须是不透明底，否则横向滚动时下层单元格会透出。
+     提高选择器权重是为了压过消费方主题里的
+     `.el-table__row td.el-table__cell { background: transparent }`。 */
+  .el-table__body-wrapper td.el-table-fixed-column--right,
+  .el-table__body-wrapper tr:hover > td.el-table-fixed-column--right {
+    background: var(--el-bg-color-overlay, #fff) !important;
+  }
+
+  .el-table__header-wrapper th.el-table-fixed-column--right {
+    background: color-mix(in srgb, var(--el-color-primary) 4%, var(--el-bg-color-overlay, #fff)) !important;
+  }
+
+  .el-collapse {
+    border: 0;
+  }
+
+  .el-collapse-item {
+    margin-bottom: 8px;
+    border: 1px solid var(--su-border-light);
+    border-radius: 12px;
+    background: var(--el-bg-color-overlay, #fff);
+    overflow: hidden;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &.is-selected {
+      border-color: var(--el-color-primary);
+      background: color-mix(in srgb, var(--el-color-primary) 7%, var(--el-bg-color-overlay, #fff));
+    }
+
+    .el-collapse-item__header {
+      padding: 0 12px;
+      border-bottom: 0;
+    }
+
+    .el-collapse-item__wrap {
+      border-bottom: 0;
+    }
+
+    .el-collapse-item__content {
+      padding: 0 12px 10px;
     }
   }
 
@@ -34,15 +80,10 @@
 
 .schema-grid-actions {
   display: flex;
-  gap: var(--su-space-2);
+  gap: var(--su-space-1);
   justify-content: center;
   flex-wrap: wrap;
   align-items: center;
-
-  .el-icon {
-    cursor: pointer;
-    margin-right: var(--su-space-2);
-  }
 }
 
 .mobile-primary-label {

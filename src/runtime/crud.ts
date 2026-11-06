@@ -1,3 +1,4 @@
+import { reactive } from 'vue'
 import pluralize from 'pluralize'
 import type { Schema, Model, CRUDOptions, Pagination, Sortable, Scenario } from '../core/types'
 import { unwrapCellValue } from '../core/model.ts'
@@ -74,7 +75,10 @@ export class CRUD {
   sortable: Sortable | null = null
   queryParams: Record<string, any> = {}
   fixedQuery: Record<string, any> = {}
-  pagination: Pagination = { ...DEFAULT_PAGINATION }
+  // pagination 会被 SchemaViewer 的 computed 直接读取；必须是 reactive，
+  // 否则通过 CRUD 原始实例（init 阶段）调用 searchModel 时，totalCount
+  // 的赋值不会触发依赖，工具栏/分页会一直显示初始的 0。
+  pagination: Pagination = reactive({ ...DEFAULT_PAGINATION })
   private searchSeq = 0
 
   constructor(options: CRUDOptions) {

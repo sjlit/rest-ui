@@ -1,44 +1,113 @@
 <template>
-  <div class="schema-page">
+  <div class="schema-page" :class="{ 'has-mobile-batch': isMobile && selections.length > 0 }">
     <div v-if="showHeader" class="schema-page-header">
       <div class="header-left">
         <slot name="headerleft">
           <h3>{{ title }}</h3>
+          <p v-if="subtitle" class="header-subtitle">{{ subtitle }}</p>
         </slot>
       </div>
       <div class="header-right">
         <slot name="headerright">
-          <el-button v-if="!readonly" type="primary" round @click="handleCreate">
+          <Action v-for="action in headerActionList" :key="`header-${action.name}`" :action="action"
+            @click="handleHeaderAction" />
+          <el-button v-if="!readonly && !hasHeaderCreate" type="primary" :icon="Plus" @click="handleCreate">
             {{ t('action.create') }}
           </el-button>
         </slot>
       </div>
     </div>
+
     <div class="schema-page-body">
       <div v-if="showSearch" class="schema-page-search">
-        <SchemaForm :schemas="searchSchemas" scenario="search" :model="searchModel" :inline="true"
-          :actions="searchActionList">
-          <template #default="{ model, schema }">
-            <slot name="searchform" :model="model" :schema="schema" />
-          </template>
-        </SchemaForm>
+        <div v-if="searchCollapsible" class="schema-search-summary">
+          <el-button class="schema-search-toggle" :class="{ 'is-open': searchOpen }" @click="toggleSearch">
+            <el-icon><Filter /></el-icon>
+            <span>{{ t('search.filter') }}</span>
+            <span v-if="activeFilters.length" class="schema-search-count">{{ activeFilters.length }}</span>
+            <el-icon class="schema-search-chevron"><ArrowDown /></el-icon>
+          </el-button>
+
+          <div v-if="activeFilters.length" class="schema-search-chips">
+            <el-tag v-for="filter in activeFilters" :key="filter.column" closable size="small" type="info"
+              effect="light" @close="removeFilter(filter.column)">
+              {{ filter.label }}
+            </el-tag>
+            <el-button link type="primary" size="small" @click="resetSearch">
+              {{ t('search.clear') }}
+            </el-button>
+          </div>
+          <span v-else class="schema-search-hint">{{ t('search.hint') }}</span>
+        </div>
+
+        <el-collapse-transition>
+          <div v-show="!searchCollapsible || searchOpen" class="schema-search-form">
+            <SchemaForm ref="searchFormRef" :schemas="searchSchemas" scenario="search" :model="searchModel"
+              :inline="true" :actions="searchActionList">
+              <template #default="{ model, schema }">
+                <slot name="searchform" :model="model" :schema="schema" />
+              </template>
+            </SchemaForm>
+          </div>
+        </el-collapse-transition>
       </div>
+
       <div v-if="showToolbar" class="schema-page-toolbar">
-        <el-dropdown v-if="batchActionList.length > 0" placement="bottom-end">
-          <el-icon>
-            <More />
-          </el-icon>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item v-for="action in batchActionList" :key="action.name" @click="handleBatchAction(action)">
-                {{ action.label }}
-              </el-dropdown-item>
-            </el-dropdown-menu>
+        <div class="schema-toolbar-left">
+          <template v-if="!isMobile && selections.length > 0">
+            <span class="schema-selection-count">
+              {{ t('toolbar.selected', String(selections.length)) }}
+            </span>
+            <el-button v-for="action in batchActionList" :key="action.name" size="small"
+              :type="action.type || 'default'" :plain="isPlainAction(action)"
+              @click="handleBatchAction(action)">
+              {{ action.label }}
+            </el-button>
+            <el-button link size="small" @click="clearSelection">
+              {{ t('toolbar.clearSelection') }}
+            </el-button>
           </template>
-        </el-dropdown>
+          <template v-else>
+            <span class="schema-toolbar-total">
+              {{ t('toolbar.total', String(pagination.totalCount)) }}
+            </span>
+            <template v-if="!isMobile && batchActionList.length > 0">
+              <span class="schema-toolbar-divider"></span>
+              <span class="schema-toolbar-hint">{{ t('toolbar.hint') }}</span>
+            </template>
+          </template>
+        </div>
+
+        <div v-if="!isMobile" class="schema-toolbar-right">
+          <slot name="toolbarright" />
+          <el-select v-if="showDensity" :model-value="density" size="small" class="schema-density-select"
+            :aria-label="t('density.label')" @update:model-value="setDensity">
+            <el-option :label="t('density.default')" value="default" />
+            <el-option :label="t('density.compact')" value="small" />
+          </el-select>
+          <el-popover v-if="showColumnSettings" placement="bottom-end" :width="188" trigger="click">
+            <template #reference>
+              <el-button size="small" text bg>
+                <el-icon><Setting /></el-icon>
+                {{ t('columns.title') }}
+              </el-button>
+            </template>
+            <div class="schema-column-panel">
+              <p class="schema-column-title">{{ t('columns.title') }}</p>
+              <el-checkbox v-for="schema in listSchemas" :key="schema.column"
+                :model-value="!hiddenColumns.includes(schema.column)"
+                @update:model-value="(checked) => toggleColumn(schema.column, !!checked)">
+                {{ schema.label }}
+              </el-checkbox>
+            </div>
+          </el-popover>
+        </div>
       </div>
+
       <div class="schema-page-grid" v-loading="loading">
-        <SchemaGrid :schemas="listSchemas" :models="models" scenario="list" :actions="rowActionList" v-bind="gridProps"
+        <SchemaGrid ref="gridRef" :schemas="displaySchemas" :models="models" scenario="list" :actions="rowActionList"
+          :row-key="primaryKey" :actions-label="t('table.actions')" :actions-width="actionsWidth"
+          :table-height="resolvedTableHeight" :empty-text="t('table.empty')" :size="density" v-bind="gridProps"
           @selection="handleSelectionChange" @sort="handleSortChange">
           <template #default="{ model, schema }">
             <slot name="gridview" :model="model" :schema="schema" />
@@ -46,23 +115,23 @@
         </SchemaGrid>
         <div v-if="showPagination" class="schema-page-pagination">
           <el-pagination :page-size="pagination.size" :page-sizes="pageSizes" :total="pagination.totalCount"
-            :current-page="pagination.index" :layout="paginationLayout" @current-change="handlePageChange"
-            @size-change="handleSizeChange" />
+            :current-page="pagination.index" :layout="paginationLayout" :small="isMobile"
+            @current-change="handlePageChange" @size-change="handleSizeChange" />
         </div>
       </div>
     </div>
 
     <el-dialog v-if="formMode === 'dialog'" v-model="formVisible" :title="formTitle" :width="formWidth" draggable
       destroy-on-close>
-      <SchemaForm v-bind="formProps" :schemas="formSchemas" :scenario="formScenario" :model="formModel"
+      <SchemaForm v-bind="resolvedFormProps" :schemas="formSchemas" :scenario="formScenario" :model="formModel"
         :actions="formActionList" :errors="formErrors">
         <template #default="{ model, schema }">
           <slot name="crudform" :model="model" :schema="schema" />
         </template>
       </SchemaForm>
     </el-dialog>
-    <el-drawer v-else v-model="formVisible" :title="formTitle" :size="formWidth" destroy-on-close>
-      <SchemaForm v-bind="formProps" :schemas="formSchemas" :scenario="formScenario" :model="formModel"
+    <el-drawer v-else v-model="formVisible" :title="formTitle" :size="drawerWidth" destroy-on-close>
+      <SchemaForm v-bind="resolvedFormProps" :schemas="formSchemas" :scenario="formScenario" :model="formModel"
         :actions="formActionList" :errors="formErrors">
         <template #default="{ model, schema }">
           <slot name="crudform" :model="model" :schema="schema" />
@@ -70,49 +139,73 @@
       </SchemaForm>
     </el-drawer>
 
-    <el-dialog v-if="formMode === 'dialog'" v-model="detailVisible" :title="detailTitle" :width="formWidth" draggable
+    <el-dialog v-if="formMode === 'dialog'" v-model="detailVisible" :title="detailTitle" :width="detailWidth" draggable
       destroy-on-close>
-      <el-descriptions :column="1" border>
+      <el-descriptions :column="detailColumns" border>
         <el-descriptions-item v-for="schema in detailSchemas" :key="schema.column" :label="schema.label">
           <Cell :model="detailModel" :schema="schema" />
         </el-descriptions-item>
       </el-descriptions>
     </el-dialog>
-    <el-drawer v-else v-model="detailVisible" :title="detailTitle" :size="formWidth" destroy-on-close>
-      <el-descriptions :column="1" border>
+    <el-drawer v-else v-model="detailVisible" :title="detailTitle" :size="detailWidth" destroy-on-close>
+      <el-descriptions :column="detailColumns" border>
         <el-descriptions-item v-for="schema in detailSchemas" :key="schema.column" :label="schema.label">
           <Cell :model="detailModel" :schema="schema" />
         </el-descriptions-item>
       </el-descriptions>
     </el-drawer>
+
+    <transition name="schema-batch-slide">
+      <div v-if="isMobile && selections.length > 0" class="schema-mobile-batch">
+        <span class="schema-mobile-batch-count">
+          {{ t('toolbar.selected', String(selections.length)) }}
+        </span>
+        <div class="schema-mobile-batch-actions">
+          <el-button v-for="action in batchActionList" :key="`mobile-${action.name}`" size="small"
+            :type="action.type || 'default'" :plain="isPlainAction(action)"
+            @click="handleBatchAction(action)">
+            {{ action.label }}
+          </el-button>
+          <el-button link size="small" @click="clearSelection">
+            {{ t('action.cancel') }}
+          </el-button>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, inject, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, inject, onMounted, onUnmounted, nextTick } from 'vue'
 import ElButton from 'element-plus/es/components/button/index.mjs'
 import { ElDescriptions, ElDescriptionsItem } from 'element-plus/es/components/descriptions/index.mjs' // DescriptionsItem 与 Descriptions 同源
 import ElDialog from 'element-plus/es/components/dialog/index.mjs'
 import ElDrawer from 'element-plus/es/components/drawer/index.mjs'
-import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus/es/components/dropdown/index.mjs' // 子组件与 Dropdown 同源
 import ElIcon from 'element-plus/es/components/icon/index.mjs'
 import ElPagination from 'element-plus/es/components/pagination/index.mjs'
+import ElTag from 'element-plus/es/components/tag/index.mjs'
+import { ElSelect, ElOption } from 'element-plus/es/components/select/index.mjs'
+import ElPopover from 'element-plus/es/components/popover/index.mjs'
+import ElCheckbox from 'element-plus/es/components/checkbox/index.mjs'
+import { ElCollapseTransition } from 'element-plus/es/components/collapse-transition/index.mjs'
 import { vLoading } from 'element-plus/es/components/loading/index.mjs'
 // 说明:必须从 `element-plus/es/components/xxx/index.mjs` 深层路径走,不能直接
 // `from 'element-plus'`,后者是聚合 barrel,会让消费方 vendor chunk 膨胀到 1 MB+。
 // 深层路径与 `unplugin-vue-components` 的 ElementPlusResolver 内部使用的路径一致,
 // 已经被证实可被 rollup treeshake。
-import { More } from '@element-plus/icons-vue'
+import { ArrowDown, Filter, Plus, Setting } from '@element-plus/icons-vue'
 import type { Schema, Model, Action as ActionType, Pagination as PaginationType, Scenario, FormSubmitControls } from '../core/types'
 import type { SchemaUIConfig } from '../config'
 import { filterByScenario } from '../core/form'
 import { resolveActions, isActionVisibleSync, isActionPermitted } from '../core/actions'
 import { cloneModel } from '../core/model'
+import { buildActiveFilters } from '../core/search'
 import { createDefaultTranslator } from '../core/i18n'
 import { GLOBAL_CONFIG_KEY } from '../config'
 import SchemaForm from './SchemaForm.vue'
 import SchemaGrid from './SchemaGrid.vue'
 import Cell from './parts/Cell.vue'
+import Action from './parts/Action.vue'
 import '../styles/page.scss'
 
 interface Props {
@@ -122,15 +215,28 @@ interface Props {
   loading?: boolean
   size?: string
   title?: string
+  subtitle?: string
   formMode?: 'drawer' | 'dialog'
   showHeader?: boolean
   showSearch?: boolean
   showToolbar?: boolean
   showPagination?: boolean
   showPageSize?: boolean
+  showJumper?: boolean
+  showDensity?: boolean
+  showColumnSettings?: boolean
   pageSizes?: number[]
+  searchCollapsible?: boolean
+  defaultSearchCollapsed?: boolean
+  collapseSearchOnSearch?: boolean
+  storageKey?: string
+  tableHeight?: number | string
+  autoTableHeight?: boolean
+  tableHeightOffset?: number
+  actionsWidth?: number | string
   readonly?: boolean
   searchActions?: ActionType[]
+  headerActions?: ActionType[]
   rowActions?: ActionType[]
   batchActions?: ActionType[]
   formActions?: ActionType[]
@@ -143,15 +249,29 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   pagination: () => ({ index: 1, size: 15, totalCount: 0 }),
   loading: false,
+  title: '',
+  subtitle: '',
   formMode: 'dialog',
   showHeader: true,
   showSearch: true,
   showToolbar: true,
   showPagination: true,
   showPageSize: true,
+  showJumper: true,
+  showDensity: true,
+  showColumnSettings: true,
   pageSizes: () => [10, 15, 30, 50, 100],
+  searchCollapsible: true,
+  defaultSearchCollapsed: true,
+  collapseSearchOnSearch: true,
+  storageKey: '',
+  tableHeight: '',
+  autoTableHeight: false,
+  tableHeightOffset: 500,
+  actionsWidth: '',
   readonly: false,
   searchActions: () => [],
+  headerActions: () => [],
   rowActions: () => [],
   batchActions: () => [],
   formActions: () => [],
@@ -183,14 +303,21 @@ const t = (key: string, ...args: any[]) => {
 const formVisible = ref(false)
 const formScenario = ref<Scenario>('create')
 const searchModel = ref<Model>({ ...props.presetQuery })
+const appliedSearchModel = ref<Model>({ ...props.presetQuery })
 const formModel = ref<Model>({})
 const selections = ref<any[]>([])
 const detailVisible = ref(false)
 const detailModel = ref<Model>({})
 const formSubmitting = ref(false)
+const searchOpen = ref(!props.searchCollapsible || !props.defaultSearchCollapsed)
+const searchFormRef = ref<any>(null)
+const gridRef = ref<any>(null)
+const hiddenColumns = ref<string[]>([])
+const density = ref<'default' | 'small'>('default')
 
 watch(() => props.presetQuery, (val) => {
   searchModel.value = { ...val }
+  appliedSearchModel.value = { ...val }
 }, { deep: true })
 
 const searchSchemas = computed(() =>
@@ -199,11 +326,18 @@ const searchSchemas = computed(() =>
 const listSchemas = computed(() =>
   filterByScenario(props.schemas, 'list')
 )
+const displaySchemas = computed(() =>
+  listSchemas.value.filter((schema) => !hiddenColumns.value.includes(schema.column))
+)
 const formSchemas = computed(() =>
   filterByScenario(props.schemas, formScenario.value)
 )
 const detailSchemas = computed(() =>
   filterByScenario(props.schemas, 'detail')
+)
+
+const primaryKey = computed(() =>
+  props.schemas.find((schema) => schema.primary_key === 1)?.column || ''
 )
 
 const formTitle = computed(() => {
@@ -213,18 +347,81 @@ const formTitle = computed(() => {
 const detailTitle = computed(() => t('form.detail'))
 
 const viewportWidth = ref(typeof window === 'undefined' ? 1200 : window.innerWidth)
+const viewportHeight = ref(typeof window === 'undefined' ? 900 : window.innerHeight)
+const isMobile = computed(() => viewportWidth.value <= 768)
+
+// 桌面/移动端切换会更换整个表格实现，旧勾选无法映射到新视图，直接清空。
+watch(isMobile, () => {
+  clearSelection()
+})
 
 function syncViewportWidth() {
-  if (typeof window !== 'undefined') viewportWidth.value = window.innerWidth
+  if (typeof window === 'undefined') return
+  viewportWidth.value = window.innerWidth
+  viewportHeight.value = window.innerHeight
+}
+
+// ── 列显示 / 密度持久化 ────────────────────────────────
+
+const STORAGE_PREFIX = 'rest-ui:schema-page'
+
+function storageKeyOf(name: string): string {
+  if (!props.storageKey) return ''
+  return `${STORAGE_PREFIX}:${props.storageKey}:${name}`
+}
+
+function readStorage(name: string): string | null {
+  const key = storageKeyOf(name)
+  if (!key || typeof window === 'undefined') return null
+  try {
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeStorage(name: string, value: string): void {
+  const key = storageKeyOf(name)
+  if (!key || typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
 }
 
 onMounted(() => {
   syncViewportWidth()
   window.addEventListener('resize', syncViewportWidth)
+
+  const savedColumns = readStorage('columns')
+  if (savedColumns) {
+    try {
+      const parsed = JSON.parse(savedColumns)
+      if (Array.isArray(parsed)) {
+        hiddenColumns.value = parsed.filter((item) => typeof item === 'string')
+      }
+    } catch {
+      /* 忽略损坏的缓存 */
+    }
+  }
+
+  const savedDensity = readStorage('density')
+  if (savedDensity === 'small' || savedDensity === 'default') {
+    density.value = savedDensity
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', syncViewportWidth)
+})
+
+watch(hiddenColumns, (value) => {
+  writeStorage('columns', JSON.stringify(value))
+}, { deep: true })
+
+watch(density, (value) => {
+  writeStorage('density', value)
 })
 
 const formWidth = computed(() => {
@@ -235,25 +432,144 @@ const formWidth = computed(() => {
   return '40%'
 })
 
-const paginationLayout = computed(() =>
-  props.showPageSize
-    ? 'total, sizes, prev, pager, next'
-    : 'total, prev, pager, next',
+const resolvedFormProps = computed(() => {
+  // 抽屉空间足够，默认两列；dialog 保持单列，避免窄弹窗里控件被压扁。
+  const defaults = props.formMode === 'drawer'
+    ? { grid: true, gridCols: 12 }
+    : {}
+  return { ...defaults, ...props.formProps }
+})
+
+const drawerWidth = computed(() =>
+  viewportWidth.value < 768 ? '96%' : 'min(680px, 92vw)',
 )
 
+const detailWidth = computed(() =>
+  viewportWidth.value < 768 ? '96%' : 'min(760px, 92vw)',
+)
+
+const detailColumns = computed(() => (viewportWidth.value < 768 ? 1 : 2))
+
+const resolvedTableHeight = computed(() => {
+  if (props.tableHeight !== '' && props.tableHeight !== undefined) {
+    return props.tableHeight
+  }
+  if (!props.autoTableHeight || isMobile.value) return ''
+  return Math.max(280, viewportHeight.value - props.tableHeightOffset)
+})
+
+const paginationLayout = computed(() => {
+  // 移动端宽度放不下 sizes + jumper，收敛成 total + 页码，避免横向被裁切。
+  if (isMobile.value) return 'total, prev, pager, next'
+  const parts = ['total']
+  if (props.showPageSize) parts.push('sizes')
+  parts.push('prev', 'pager', 'next')
+  if (props.showJumper) parts.push('jumper')
+  return parts.join(', ')
+})
+
+function toggleSearch() {
+  searchOpen.value = !searchOpen.value
+}
+
+function captureSearch(model: Model) {
+  appliedSearchModel.value = { ...model }
+  if (props.collapseSearchOnSearch) searchOpen.value = false
+  // 搜索结果集已变化，之前跨页保留的勾选不应继续参与批量操作。
+  gridRef.value?.clearSelection?.()
+  selections.value = []
+  emit('selectionChange', [])
+}
+
+function wrapSearchAction(action: ActionType): ActionType {
+  const wrapped: ActionType = { ...action }
+  if (typeof action.callback === 'function') {
+    wrapped.callback = (model, schemas, loading) => {
+      captureSearch(model)
+      action.callback!(model, schemas, loading)
+    }
+  }
+  if (typeof action.asyncCallback === 'function') {
+    wrapped.asyncCallback = async (model, schemas, actionArg) => {
+      captureSearch(model)
+      await action.asyncCallback!(model, schemas, actionArg)
+    }
+  }
+  return wrapped
+}
+
 const searchActionList = computed((): ActionType[] => {
-  if (props.searchActions.length > 0) return props.searchActions
-  return [
-    {
+  const base = props.searchActions.length > 0
+    ? props.searchActions
+    : [{
       name: 'search',
       label: t('action.search'),
-      type: 'primary',
-      asyncCallback: async (model) => {
+      type: 'primary' as const,
+      asyncCallback: async (model: Model) => {
         emit('search', model)
       },
-    },
-  ]
+    }]
+  const actions = base.map(wrapSearchAction)
+  if (!actions.some((action) => action.name === 'reset')) {
+    actions.push({
+      name: 'reset',
+      label: t('search.reset'),
+      callback: () => {
+        resetSearch()
+      },
+    })
+  }
+  return actions
 })
+
+const activeFilters = computed(() =>
+  buildActiveFilters(appliedSearchModel.value, searchSchemas.value, t),
+)
+
+function primarySearchAction(): ActionType | undefined {
+  return searchActionList.value.find((action) => action.name === 'search') ||
+    searchActionList.value[0]
+}
+
+function removeFilter(column: string) {
+  const schema = searchSchemas.value.find((item) => item.column === column)
+  const current = searchModel.value[column]
+  const isArray = Array.isArray(current) ||
+    schema?.format === 'multiSelect' ||
+    schema?.attributes?.live?.type === 'cascader'
+  searchModel.value = {
+    ...searchModel.value,
+    [column]: isArray ? [] : '',
+  }
+  const next = { ...appliedSearchModel.value }
+  delete next[column]
+  appliedSearchModel.value = next
+  nextTick(() => {
+    const action = primarySearchAction()
+    if (!action) return
+    searchFormRef.value?.runAction(action).catch((err: any) => {
+      console.error('[rest-ui] re-search after removing filter failed:', err)
+    })
+  })
+}
+
+function resetSearch() {
+  searchModel.value = { ...props.presetQuery }
+  appliedSearchModel.value = {}
+  nextTick(() => {
+    const action = primarySearchAction()
+    if (!action) return
+    searchFormRef.value?.runAction(action).catch((err: any) => {
+      console.error('[rest-ui] reset search failed:', err)
+    })
+  })
+}
+
+const headerActionList = computed((): ActionType[] => props.headerActions)
+
+const hasHeaderCreate = computed(() =>
+  headerActionList.value.some((action) => action.name === 'create'),
+)
 
 const rowActionList = computed((): ActionType[] => {
   const view: ActionType = {
@@ -283,6 +599,11 @@ const rowActionList = computed((): ActionType[] => {
     lookup,
     true,
   )
+})
+
+const actionsWidth = computed(() => {
+  if (props.actionsWidth !== '' && props.actionsWidth !== undefined) return props.actionsWidth
+  return Math.max(96, rowActionList.value.length * 36 + 24)
 })
 
 const batchActionList = computed((): ActionType[] =>
@@ -369,6 +690,33 @@ function closeForm() {
   formVisible.value = false
 }
 
+function handleHeaderAction(action: ActionType, loading: any) {
+  if (!isActionPermitted(action, globalConfig)) return
+  if (typeof action.callback === 'function') {
+    try {
+      action.callback(selections.value as any, props.schemas, loading)
+    } catch (err) {
+      console.error('[SchemaPage] header action failed:', err)
+    }
+  } else if (typeof action.asyncCallback === 'function') {
+    loading.value = true
+    action
+      .asyncCallback(selections.value as any, props.schemas, action)
+      .catch((err) => {
+        console.error('[SchemaPage] header action failed:', err)
+      })
+      .finally(() => {
+        loading.value = false
+      })
+  }
+}
+
+function isPlainAction(action: ActionType): boolean {
+  return action.type !== undefined &&
+    action.type !== 'default' &&
+    action.type !== 'primary'
+}
+
 function executeBatchAction(action: ActionType) {
   if (typeof action.callback === 'function') {
     try {
@@ -417,6 +765,12 @@ function handleBatchAction(action: ActionType) {
   executeBatchAction(action)
 }
 
+function clearSelection() {
+  gridRef.value?.clearSelection?.()
+  selections.value = []
+  emit('selectionChange', [])
+}
+
 function handleSelectionChange(selection: any[]) {
   selections.value = selection
   emit('selectionChange', selection)
@@ -434,10 +788,29 @@ function handleSizeChange(size: number) {
   emit('sizeChange', size)
 }
 
+function toggleColumn(column: string, checked: boolean) {
+  if (checked) {
+    hiddenColumns.value = hiddenColumns.value.filter((item) => item !== column)
+    return
+  }
+  // 至少保留一列数据列，避免整张表只剩勾选框和操作列。
+  if (displaySchemas.value.length <= 1) return
+  if (!hiddenColumns.value.includes(column)) {
+    hiddenColumns.value = [...hiddenColumns.value, column]
+  }
+}
+
+function setDensity(value: string) {
+  if (value === 'small' || value === 'default') {
+    density.value = value
+  }
+}
+
 defineExpose({
   openEdit: handleEdit,
   openDetail: handleDetail,
   closeForm,
+  clearSelection,
   formSubmitting,
   resolveFormSubmit,
   rejectFormSubmit,

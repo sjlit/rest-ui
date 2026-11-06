@@ -1,6 +1,7 @@
 @use './variables.scss';
 
 .schema-form {
+  box-sizing: border-box;
   padding: var(--su-padding);
 
   .schema-form-error {
@@ -11,6 +12,34 @@
     background: var(--el-color-danger-light-9, #fef0f0);
     font-size: 13px;
     line-height: 1.4;
+  }
+
+  /* 弹窗/抽屉里的表单：控件铺满列宽，操作栏固定在容器底部 */
+  &:not(.schema-form--inline) {
+    .el-input,
+    .el-select,
+    .el-date-editor,
+    .el-input-number,
+    .el-cascader {
+      width: 100%;
+    }
+
+    .schema-form-actions {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--su-space-2);
+      margin-top: auto;
+      padding: 12px 0 0;
+      border-top: 1px solid var(--su-border-light);
+      background: var(--el-bg-color-overlay, #fff);
+
+      .el-form-item__content {
+        justify-content: flex-end;
+      }
+    }
   }
 
   .el-form--inline {
@@ -91,6 +120,21 @@
   .icon-info {
     margin-left: .8rem;
   }
+}
+
+/* 让弹窗/抽屉里的表单撑满可用高度，操作栏才能落在底部 */
+.el-drawer__body > .schema-form,
+.el-dialog__body > .schema-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.el-drawer__body > .schema-form > .el-form,
+.el-dialog__body > .schema-form > .el-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
 }
 
 @media only screen and (max-width: 768px) {

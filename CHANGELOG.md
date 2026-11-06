@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.3.0] - 2026-11-05
+
+### Features
+
+- **列表页工作区**：页头压缩为标题/副标题 + 主操作；导出、刷新从批量入口提升到页头，新建按钮增加图标。
+- **搜索区可折叠**：默认收起，只保留“筛选”按钮和已生效条件 chips；支持单个条件移除、清空、重置；搜索完成自动收起。
+- **批量操作可见化**：工具栏显示已选数量，批量操作直接以按钮呈现；默认提供“批量删除”（可用 `showBatchDelete=false` 关闭）。
+- **列设置与密度**：工具条新增列显示/隐藏、默认/紧凑密度；按 `module/table` 持久化到 localStorage。
+- **操作列**：增加“操作”表头、固定宽度、固定列不透明背景；图标按钮改为原生 `<button>`，支持键盘焦点、`aria-label`、tooltip 和语义色（查看/编辑/删除）。
+- **表格能力**：`row-key` + `reserve-selection` 跨页保留勾选；`tableHeight` 支持表头吸顶；`SchemaViewer` 默认按视口自动计算表格高度（表头吸顶、分页可见），可用 `autoTableHeight=false` 关闭；空态文案 i18n。
+- **表单与详情**：`SchemaViewer` 默认改为右侧抽屉；抽屉内默认两列表单、控件铺满列宽、操作栏吸底；详情宽屏两列展示。
+- **移动端**：折叠列表改为卡片式外观（选中态高亮）；底部固定批量操作条；分页在移动端收敛为 total + 页码；卡片标题和展开详情都不再显示自增主键，标题优先使用业务字符串字段。
+- 新增导出：`buildActiveFilters`、`ActiveFilter`。
+- `Action` 新增 `display: 'auto' | 'icon' | 'button'`，允许文字按钮保留左侧图标。
+
+### Fixes
+
+- **分页总数一直显示 0**：`CRUD.pagination` 改为 `reactive`，组件 computed 能跟踪 `totalCount` 变化。
+- **移除筛选 chip 后不重新查询**：`SchemaForm` 暴露 `runAction()`，执行“校验 + encode + action”完整链路；筛选移除/重置后复用该链路。
+- **抽屉表单仍为单列**：`SchemaForm` 用 `ResizeObserver` 跟踪实际容器宽度，抽屉动画结束后正确按两列布局；小于 480px 自动单列。
+- **移动端分页被裁切**：移动端不再渲染 sizes/jumper，避免横向溢出。
+- **移动端标题显示 1/2/3**：折叠卡片优先使用第一个非主键字符串字段。
+- **固定列透底**：提高固定列选择器权重，header/body 均使用不透明背景。
+
+### Behavior Changes
+
+- `SchemaViewer.formMode` 默认值从 `'dialog'` 改为 `'drawer'`。
+- `SchemaViewer` 默认启用 `autoTableHeight`（按视口计算表格最大高度，表头吸顶）。
+- 导出的默认入口从 `batchActions` 移到页头；`batchActions` 默认注入“批量删除”。
+- 搜索区默认收起，搜索后自动收起。
+- 表格操作列默认显示“操作”表头，行操作图标带语义色。
+- `SchemaForm` 非 inline 模式下输入控件宽度改为 100%，操作栏吸底。
+- `SchemaPage` 的 `batchActions` 默认不再包含导出；需要旧行为时仍可显式传 `'export'`。
+
+### Tests
+
+- 新增 `buildActiveFilters` 与 `CRUD.pagination` 响应式回归测试；当前共 106 个测试通过。
+
 ## [1.2.0] - 2026-11-05
 
 ### Bug Fixes

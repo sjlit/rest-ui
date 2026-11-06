@@ -107,6 +107,13 @@ export interface Action {
   label: string
   type?: ButtonType
   icon?: string | Component
+  /**
+   * 渲染方式：
+   * - auto（默认）：有组件 icon 时渲染为图标按钮，否则渲染为文字按钮
+   * - icon：强制图标按钮
+   * - button：强制文字按钮（组件 icon 会作为按钮左侧图标）
+   */
+  display?: 'auto' | 'icon' | 'button'
   round?: boolean
   size?: ComponentSize
   permission?: string

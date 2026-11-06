@@ -1,9 +1,15 @@
 <template>
   <template v-if="isReady">
     <SchemaPage ref="schemaPageRef" :schemas="schemas" :models="crud?.getModels() || []" :pagination="pagination"
-      :loading="searching" :size="size" :title="title" :formMode="formMode" :showHeader="showHeader"
-      :showSearch="showSearch" :showToolbar="showToolbar" :showPagination="showPagination" :readonly="readonly"
-      :searchActions="searchActionList" :rowActions="rowActionList" :batchActions="batchActionList"
+      :loading="searching" :size="size" :title="title" :subtitle="subtitle" :formMode="formMode"
+      :showHeader="showHeader" :showSearch="showSearch" :showToolbar="showToolbar"
+      :showPagination="showPagination" :showPageSize="showPageSize" :showJumper="showJumper"
+      :showDensity="showDensity" :showColumnSettings="showColumnSettings" :readonly="readonly"
+      :searchCollapsible="searchCollapsible" :defaultSearchCollapsed="defaultSearchCollapsed"
+      :collapseSearchOnSearch="collapseSearchOnSearch" :storageKey="storageKey || `${module}/${table}`"
+      :tableHeight="tableHeight" :autoTableHeight="autoTableHeight" :tableHeightOffset="tableHeightOffset"
+      :actionsWidth="actionsWidth" :searchActions="searchActionList"
+      :headerActions="headerActionList" :rowActions="rowActionList" :batchActions="batchActionList"
       :formActions="formActionList" :gridProps="gridProps" :formProps="formProps" :presetQuery="presetQuery"
       :formErrors="crud?.getFieldErrors() || {}"
       @search="handleSearch" @create="handleCreate" @delete="handleDelete" @pageChange="handlePageChange"
@@ -23,6 +29,9 @@
       <template #headerright>
         <slot name="headerright" />
       </template>
+      <template #toolbarright>
+        <slot name="toolbarright" />
+      </template>
     </SchemaPage>
   </template>
   <template v-else></template>
@@ -37,13 +46,14 @@ import { useSchemaUI } from '../runtime/useSchemaUI'
 import { clearSearchModel } from '../core/form'
 import { resolveActions } from '../core/actions'
 import { createDefaultTranslator } from '../core/i18n'
-import { Delete, EditPen, View } from '@element-plus/icons-vue'
+import { Delete, Download, EditPen, Refresh, View } from '@element-plus/icons-vue'
 import SchemaPage from './SchemaPage.vue'
 
 interface Props {
   module: string
   table: string
   title?: string
+  subtitle?: string
   apiPrefix?: string
   config?: Partial<CRUDOptions>
   size?: string
@@ -52,9 +62,25 @@ interface Props {
   showSearch?: boolean
   showToolbar?: boolean
   showPagination?: boolean
+  showPageSize?: boolean
+  showJumper?: boolean
+  showDensity?: boolean
+  showColumnSettings?: boolean
+  searchCollapsible?: boolean
+  defaultSearchCollapsed?: boolean
+  collapseSearchOnSearch?: boolean
+  showExport?: boolean
+  showRefresh?: boolean
+  showBatchDelete?: boolean
+  storageKey?: string
+  tableHeight?: number | string
+  autoTableHeight?: boolean
+  tableHeightOffset?: number
+  actionsWidth?: number | string
   readonly?: boolean
   autoFetch?: boolean
   rowActions?: (string | ActionType)[]
+  headerActions?: (string | ActionType)[]
   batchActions?: (string | ActionType)[]
   formActions?: (string | ActionType)[]
   searchActions?: (string | ActionType)[]
@@ -66,16 +92,33 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   title: '',
+  subtitle: '',
   apiPrefix: '',
   config: () => ({}),
-  formMode: 'dialog',
+  formMode: 'drawer',
   showHeader: true,
   showSearch: true,
   showToolbar: true,
   showPagination: true,
+  showPageSize: true,
+  showJumper: true,
+  showDensity: true,
+  showColumnSettings: true,
+  searchCollapsible: true,
+  defaultSearchCollapsed: true,
+  collapseSearchOnSearch: true,
+  showExport: true,
+  showRefresh: true,
+  showBatchDelete: true,
+  storageKey: '',
+  tableHeight: '',
+  autoTableHeight: true,
+  tableHeightOffset: 500,
+  actionsWidth: '',
   readonly: false,
   autoFetch: true,
   rowActions: () => [],
+  headerActions: () => [],
   batchActions: () => [],
   formActions: () => [],
   searchActions: () => [],
@@ -133,17 +176,85 @@ function buildRowDefaults(): ActionDefaults {
   }
 }
 
-function buildBatchDefaults(): ActionDefaults {
-  const exp: ActionType = {
+function buildExportAction(): ActionType {
+  return {
     name: 'export',
     label: t('action.export'),
+    icon: Download,
+    display: 'button',
     callback: () => {
       crud.value!.exportModels().catch((e) => console.error('Export failed:', e))
     },
   }
+}
+
+function buildHeaderDefaults(): ActionDefaults {
+  const exp = buildExportAction()
+  const refresh: ActionType = {
+    name: 'refresh',
+    label: t('action.refresh'),
+    icon: Refresh,
+    display: 'button',
+    asyncCallback: async () => {
+      await runSearch(() => crud.value!.searchModel())
+    },
+  }
+  const batchExportRequested = props.batchActions.some((item) =>
+    typeof item === 'string' ? item === 'export' : item.name === 'export',
+  )
+  const list: ActionType[] = []
+  if (props.showExport && !batchExportRequested) list.push(exp)
+  if (props.showRefresh) list.push(refresh)
   return {
-    list: [exp],
-    lookup: { export: exp },
+    list,
+    lookup: { export: exp, refresh },
+  }
+}
+
+function buildBatchDefaults(): ActionDefaults {
+  // 导出默认提升到页头；batchActions 显式传 'export' 时仍兼容旧的批量入口。
+  const exp = buildExportAction()
+  const del: ActionType = {
+    name: 'delete',
+    label: t('action.batchDelete'),
+    type: 'danger',
+    asyncCallback: async (models) => {
+      const list = Array.isArray(models) ? models : []
+      if (list.length === 0) return
+      try {
+        await ElMessageBox.confirm(
+          t('confirm.batchDelete.message', String(list.length)),
+          t('confirm.batchDelete.title'),
+          {
+            confirmButtonText: t('action.delete'),
+            cancelButtonText: t('action.cancel'),
+            type: 'warning',
+          },
+        )
+      } catch {
+        return
+      }
+      const instance = crud.value
+      if (!instance) return
+      const result = await instance.deleteModels(list)
+      if (result.failed > 0) {
+        console.error(`[rest-ui] batch delete failed: ${result.failed}/${result.total}`)
+      }
+      await runSearch(() => instance.searchModel())
+      schemaPageRef.value?.clearSelection?.()
+    },
+  }
+
+  const batchExportRequested = props.batchActions.some((item) =>
+    typeof item === 'string' ? item === 'export' : item.name === 'export',
+  )
+  const list: ActionType[] = []
+  // 只读页面（审计/登录日志等）没有删除端点，不注入批量删除。
+  if (props.showBatchDelete && !props.readonly) list.push(del)
+  if (batchExportRequested) list.push(exp)
+  return {
+    list,
+    lookup: { delete: del, export: exp },
   }
 }
 
@@ -183,6 +294,11 @@ const searchActionList = computed((): ActionType[] => {
   return resolveActions(props.searchActions, list, lookup, true)
 })
 
+const headerActionList = computed((): ActionType[] => {
+  const { list, lookup } = buildHeaderDefaults()
+  return resolveActions(props.headerActions, list, lookup, true)
+})
+
 const rowActionList = computed((): ActionType[] => {
   const { list, lookup } = buildRowDefaults()
   // readonly 只保留查看详情，不再把 view 一起隐藏
@@ -194,6 +310,7 @@ const rowActionList = computed((): ActionType[] => {
 
 const batchActionList = computed((): ActionType[] => {
   const { list, lookup } = buildBatchDefaults()
+  // 默认只注入批量删除；导出只有显式传入时才进入批量入口。
   return resolveActions(props.batchActions, list, lookup, true)
 })
 
@@ -350,8 +467,14 @@ function handleDelete(model: Model) {
       type: 'warning',
     },
   )
-    .then(() => {
-      crud.value!.deleteModel(model).catch((e) => console.error('Delete failed:', e))
+    .then(async () => {
+      try {
+        await crud.value!.deleteModel(model)
+        // reserve-selection 会保留已删除行的主键，删除后主动清空勾选。
+        schemaPageRef.value?.clearSelection?.()
+      } catch (e) {
+        console.error('Delete failed:', e)
+      }
     })
     .catch(() => { })
 }

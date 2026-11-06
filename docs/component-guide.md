@@ -84,11 +84,50 @@ import { SchemaViewer } from '@sjlit/rest-ui'
 表单弹窗模式：
 
 ```vue
-<!-- 对话框模式（默认） -->
-<SchemaViewer module="user" table="admin" formMode="dialog" />
-
-<!-- 抽屉模式 -->
+<!-- 抽屉模式（默认，宽屏两列表单 + 底部固定操作栏） -->
 <SchemaViewer module="user" table="admin" formMode="drawer" />
+
+<!-- 对话框模式 -->
+<SchemaViewer module="user" table="admin" formMode="dialog" />
+```
+
+#### 搜索区 / 工具条 / 列设置
+
+新版列表页默认把搜索区收起，只显示“筛选”按钮和已生效条件；搜索后自动收起。
+工具条提供每页条数、表格密度和列显示配置，并按 `module/table` 持久化到
+localStorage。
+
+```vue
+<SchemaViewer
+  module="user"
+  table="admin"
+  :search-collapsible="true"
+  :default-search-collapsed="true"
+  :show-density="true"
+  :show-column-settings="true"
+  storage-key="system/sys_users"
+/>
+```
+
+页头默认提供“导出 / 刷新 / 创建”，导出不再藏在批量操作里。批量操作默认只
+注入“批量删除”，可通过 `:show-batch-delete="false"` 关闭：
+
+```vue
+<SchemaViewer
+  module="user"
+  table="admin"
+  :show-export="true"
+  :show-refresh="true"
+  :show-batch-delete="true"
+/>
+```
+
+`SchemaViewer` 默认根据视口自动计算表格高度，表头吸顶、分页始终可见；
+可通过 `table-height` 显式覆盖，或 `:auto-table-height="false"` 关闭：
+
+```vue
+<SchemaViewer module="user" table="admin" :table-height="560" />
+<SchemaViewer module="user" table="admin" :auto-table-height="false" />
 ```
 
 #### showHeader / showSearch / showToolbar / showPagination
@@ -678,12 +717,13 @@ Action 是本库统一的按钮定义接口，用于搜索操作、行操作、�
 
 ```typescript
 import type { Action } from '@sjlit/rest-ui'
+import { Edit } from '@element-plus/icons-vue'
 
 const action: Action = {
   name: 'edit',        // 唯一标识
   label: '编辑',       // 显示文本
   type: 'primary',     // 按钮类型
-  icon: 'Edit',        // 图标（Element Plus 图标名）
+  icon: Edit,          // 组件图标；图标模式下渲染为图标按钮
   size: 'small',       // 按钮尺寸
   callback: (model, schemas) => {
     console.log('Edit:', model)
@@ -785,16 +825,18 @@ const rowActions: Action[] = [
 
 ### 批量操作
 
-批量操作接收选中项数组。注意：批量操作**只支持 `callback`**，不支持 `asyncCallback`。
+批量操作接收选中项数组，支持 `callback` 和 `asyncCallback`（异步时会自动管理
+按钮 loading）。`SchemaViewer` 默认注入“批量删除”，只读页面除外；可通过
+`:show-batch-delete="false"` 关闭。
 
 ```typescript
 const batchActions: Action[] = [
   {
-    name: 'batchDelete',
-    label: '批量删除',
-    type: 'danger',
-    callback: (selections) => {
-      console.log('Delete:', selections)
+    name: 'batchEnable',
+    label: '批量启用',
+    type: 'success',
+    asyncCallback: async (selections) => {
+      await enableUsers(selections.map((item) => item.id))
     },
   },
   {
@@ -804,15 +846,18 @@ const batchActions: Action[] = [
       exportToExcel(selections)
     },
   },
-  {
-    name: 'batchUpdateStatus',
-    label: '批量更新状态',
-    type: 'primary',
-    callback: (selections) => {
-      updateStatus(selections.map(s => s.id), 'active')
-    },
-  },
 ]
+```
+
+### display：文字按钮 / 图标按钮
+
+```typescript
+const exportAction: Action = {
+  name: 'export',
+  label: '导出',
+  icon: Download,
+  display: 'button', // 文字按钮，图标放在左侧；icon 则强制图标按钮
+}
 ```
 
 ### 搜索操作

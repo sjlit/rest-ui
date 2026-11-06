@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { computed, isReactive, nextTick } from 'vue'
 import { CRUD } from './crud.ts'
 
 const noopHttp = {
@@ -8,6 +9,16 @@ const noopHttp = {
   put: async () => ({}),
   delete: async () => ({}),
 }
+
+test('pagination 是 reactive，组件 computed 能跟踪 totalCount 变化', async () => {
+  const crud = new CRUD({ module: 'user', table: 'admin', httpClient: noopHttp })
+  const total = computed(() => crud.pagination.totalCount)
+  assert.equal(isReactive(crud.pagination), true)
+  assert.equal(total.value, 0)
+  crud.pagination.totalCount = 30
+  await nextTick()
+  assert.equal(total.value, 30)
+})
 
 test('findModelPrimaryKey 解包 __format=both 格式的 { label, value } 单元格', () => {
   const crud = new CRUD({ module: 'user', table: 'admin', httpClient: noopHttp })

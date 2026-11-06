@@ -1,5 +1,5 @@
 <template>
-  <div class="schema-form" ref="formElement">
+  <div class="schema-form" :class="{ 'schema-form--inline': inline }" ref="formElement">
     <div v-if="globalError" class="schema-form-error">{{ globalError }}</div>
     <el-form
       :model="activeModel"
@@ -103,6 +103,7 @@ const formWidth = ref<number>(1200)
 const fieldErrors = ref<Record<string, string>>({})
 const stopWatchers: (() => void)[] = []
 let resizeHandler: (() => void) | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const BREAKPOINTS = { MOBILE: 768, TABLET: 960 }
 const LABEL_WIDTHS = { MOBILE: '80px', DESKTOP: '120px' }
@@ -144,8 +145,11 @@ const formRules = computed(() => {
 })
 
 function getColSpan(schema: Schema): number {
-  if (props.gridCols > 0) return Math.min(props.gridCols, 24)
   if (schema.format === 'textarea') return COL_SPANS.FULL
+  if (props.gridCols > 0) {
+    // 抽屉宽度通常 < 768px，但仍适合两列；只有真正窄屏才退回单列。
+    return formWidth.value < 480 ? COL_SPANS.FULL : Math.min(props.gridCols, 24)
+  }
   if (formWidth.value < BREAKPOINTS.MOBILE) return COL_SPANS.FULL
   if (formWidth.value < BREAKPOINTS.TABLET) return COL_SPANS.HALF
   return COL_SPANS.THIRD
@@ -158,15 +162,21 @@ onMounted(() => {
       submit().catch((err) => console.error('[rest-ui] auto submit failed:', err))
     })
   }
-  if (formElement.value) {
-    formWidth.value = formElement.value.offsetWidth
-  }
-
-  resizeHandler = () => {
+  const updateFormWidth = () => {
     if (formElement.value) {
       formWidth.value = formElement.value.offsetWidth
     }
   }
+  updateFormWidth()
+  // 抽屉/弹窗开启动画期间 offsetWidth 可能还是 0（或旧值）；
+  // nextTick + ResizeObserver 保证宽度稳定后重新计算栅格列数。
+  nextTick(updateFormWidth)
+  if (typeof ResizeObserver !== 'undefined' && formElement.value) {
+    resizeObserver = new ResizeObserver(updateFormWidth)
+    resizeObserver.observe(formElement.value)
+  }
+
+  resizeHandler = updateFormWidth
   window.addEventListener('resize', resizeHandler)
 
   stopWatchers.push(
@@ -193,6 +203,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopWatchers.forEach((stop) => stop())
+  resizeObserver?.disconnect()
+  resizeObserver = null
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler)
   }
@@ -244,5 +256,14 @@ async function handleActionClick(action: ActionType, loading: any) {
   }
 }
 
-defineExpose({ submit })
+/**
+ * 供外部（例如移除筛选 chip 后）复用表单的提交 + action 执行链路：
+ * submit() 只负责校验和 encode，不会触发 action，单独调用不会发起搜索。
+ */
+async function runAction(action: ActionType) {
+  const loading = ref(false)
+  await handleActionClick(action, loading)
+}
+
+defineExpose({ submit, runAction })
 </script>

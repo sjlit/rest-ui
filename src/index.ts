@@ -63,6 +63,8 @@ export { Scenarios } from './core/scenarios'
 export { encode, decode } from './core/codec'
 export { getModelValue, getModelLabel, unwrapCellValue, findOptionByValue, cloneModel } from './core/model'
 export { generateSchemaRule, checkSchemaVisible, clearSearchModel, filterByScenario } from './core/form'
+export { buildActiveFilters } from './core/search'
+export type { ActiveFilter } from './core/search'
 export { isActionPermitted, isActionVisibleSync, resolveActions } from './core/actions'
 export { createDefaultTranslator } from './core/i18n'
 

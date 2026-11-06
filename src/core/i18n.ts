@@ -15,12 +15,34 @@ export const defaultMessages: Record<string, string | ((...args: string[]) => st
   'action.confirm': '确定',
   'action.cancel': '取消',
   'action.upload': '上传',
+  'action.refresh': '刷新',
+  'action.batchDelete': '批量删除',
+
+  'search.filter': '筛选',
+  'search.hint': '未设置筛选条件，默认展示全部数据',
+  'search.clear': '清空',
+  'search.reset': '重置',
+
+  'toolbar.selected': (count: string) => `已选 ${count} 项`,
+  'toolbar.total': (count: string) => `共 ${count} 条`,
+  'toolbar.hint': '勾选行后可批量操作',
+  'toolbar.clearSelection': '取消选择',
+
+  'table.actions': '操作',
+  'table.empty': '暂无数据',
+
+  'columns.title': '显示列',
+  'density.label': '表格密度',
+  'density.default': '默认密度',
+  'density.compact': '紧凑密度',
 
   'boolean.true': '是',
   'boolean.false': '否',
 
   'confirm.delete.title': '提示',
   'confirm.delete.message': '确认删除该数据?',
+  'confirm.batchDelete.title': '批量删除',
+  'confirm.batchDelete.message': (count: string) => `确认删除选中的 ${count} 条数据吗？该操作不可撤销。`,
   'error.save': '保存失败',
   'error.validation': '验证失败',
 

@@ -10,14 +10,13 @@
 
 .schema-page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
   row-gap: var(--su-space-2);
-  padding: var(--su-padding) var(--su-space-5);
+  padding: 4px 2px 0;
   transition: var(--su-transition-base);
 }
-
 
 .schema-page-header:focus-visible {
   outline: 2px solid var(--el-color-primary);
@@ -26,16 +25,25 @@
 
 .header-left h3 {
   margin: 0;
-  font-size: var(--el-font-size-large, 16px);
+  font-size: 20px;
   font-weight: 600;
   color: var(--su-text-primary);
-  line-height: 1.4;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.header-subtitle {
+  margin: 6px 0 0;
+  color: var(--su-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .header-right {
   display: flex;
   gap: var(--su-space-2);
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .schema-page-body {
@@ -45,6 +53,7 @@
   background-color: var(--su-bg);
   border-radius: var(--su-radius);
   box-shadow: var(--su-shadow);
+  overflow: hidden;
 }
 
 .schema-page-search,
@@ -52,26 +61,318 @@
   transition: var(--su-transition-base);
 }
 
-.schema-page-search>.el-loading-mask,
-.schema-page-grid>.el-loading-mask {
+.schema-page-search > .el-loading-mask,
+.schema-page-grid > .el-loading-mask {
   border-radius: var(--su-radius);
 }
 
-.schema-page-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: var(--su-space-2) var(--su-space-4);
+/* ── 搜索区：默认收起，只留一行筛选摘要 ───────────────── */
+
+.schema-page-search {
+  padding: 0;
 }
 
+.schema-search-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--su-space-3);
+  min-height: 38px;
+  padding: var(--su-space-2) var(--su-space-4);
+  flex-wrap: wrap;
+}
+
+.schema-search-toggle {
+  flex-shrink: 0;
+}
+
+.schema-search-toggle .el-icon {
+  transition: transform 0.18s ease;
+}
+
+.schema-search-toggle .schema-search-chevron {
+  margin-left: 2px;
+  font-size: 11px;
+  color: var(--su-text-color-muted);
+}
+
+.schema-search-toggle.is-open .schema-search-chevron {
+  transform: rotate(180deg);
+}
+
+.schema-search-count {
+  min-width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--el-color-primary);
+  color: #fff;
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.schema-search-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--su-space-1);
+  min-width: 0;
+}
+
+.schema-search-hint {
+  color: var(--su-text-color-muted);
+  font-size: 12.5px;
+}
+
+.schema-search-form {
+  border-top: 1px dashed var(--su-border-light);
+}
+
+.schema-search-form .schema-form {
+  padding: var(--su-space-3) var(--su-space-4) var(--su-space-1);
+}
+
+/* 搜索区用 4 列网格（标签在上），比 inline 表单换行更整齐、更省高度 */
+.schema-search-form .schema-form .el-form--inline {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px 14px;
+  align-items: start;
+  flex-wrap: nowrap;
+}
+
+.schema-search-form .el-form--inline .el-form-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+}
+
+.schema-search-form .el-form--inline .el-form-item__label {
+  justify-content: flex-start;
+  min-width: 0;
+  height: auto;
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--su-text-secondary);
+}
+
+.schema-search-form .el-form--inline .el-form-item__content {
+  width: 100%;
+  margin-left: 0 !important;
+}
+
+.schema-search-form .schema-form .el-input,
+.schema-search-form .schema-form .el-select,
+.schema-search-form .schema-form .el-date-editor,
+.schema-search-form .schema-form .el-input-number,
+.schema-search-form .schema-form .el-cascader {
+  width: 100%;
+}
+
+.schema-search-form .schema-form-actions {
+  grid-column: 1 / -1;
+  margin: 2px 0 0 !important;
+}
+
+.schema-search-form .schema-form-actions .el-form-item__label {
+  display: none;
+}
+
+.schema-search-form .schema-form-actions .el-form-item__content {
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .schema-search-form .schema-form .el-form--inline {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── 表格工具条 ─────────────────────────────────────── */
+
+.schema-page-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--su-space-3);
+  padding: var(--su-space-2) var(--su-space-4);
+  border-bottom: 1px solid var(--su-border-light);
+  flex-wrap: wrap;
+}
+
+.schema-toolbar-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--su-space-2);
+  min-height: 32px;
+  min-width: 0;
+}
+
+.schema-selection-count {
+  color: var(--su-text-color-muted);
+  font-size: 12.5px;
+}
+
+.schema-selection-count strong {
+  color: var(--el-color-primary);
+  font-size: 14px;
+}
+
+.schema-toolbar-total {
+  color: var(--su-text-color-muted);
+  font-size: 12.5px;
+}
+
+.schema-toolbar-total strong {
+  color: var(--su-text-color-primary);
+  font-size: 13px;
+}
+
+.schema-toolbar-divider {
+  width: 1px;
+  height: 12px;
+  background: var(--su-border-light);
+}
+
+.schema-toolbar-hint {
+  color: var(--su-text-secondary);
+  font-size: 12.5px;
+}
+
+.schema-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--su-space-2);
+  flex-shrink: 0;
+}
+
+.schema-toolbar-right .schema-density-select {
+  // Element Plus 的 .el-select 用 --el-select-width:100% 控制宽度，
+  // 直接写 width 会被同优先级的 .el-select 覆盖（admin 的 CSS 顺序更明显）。
+  --el-select-width: 104px;
+  width: 104px !important;
+  min-width: 104px;
+  flex: 0 0 104px;
+}
+
+.schema-toolbar-right > * {
+  flex-shrink: 0;
+}
+
+.schema-column-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 2px;
+}
+
+.schema-column-title {
+  margin: 0 0 2px;
+  color: var(--su-text-color-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── 分页 ───────────────────────────────────────────── */
+
 .schema-page-pagination {
-  margin-top: var(--su-gap);
-  padding-top: var(--su-space-3);
+  margin-top: 0;
+  padding: var(--su-space-3) var(--su-space-4) 14px;
   border-top: 1px solid var(--su-border-light);
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--su-space-2);
 }
 
 .schema-page-grid .el-empty {
   padding: var(--su-space-6) 0;
+}
+
+/* ── 移动端底部批量操作条 ───────────────────────────── */
+
+.schema-page.has-mobile-batch {
+  padding-bottom: 84px;
+}
+
+.schema-mobile-batch {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--su-space-2);
+  padding: 10px 14px;
+  border: 1px solid var(--su-border-light);
+  border-radius: 14px;
+  background: var(--el-bg-color-overlay, #fff);
+  box-shadow: 0 16px 40px rgba(30, 60, 60, 0.22);
+}
+
+.schema-mobile-batch-count {
+  color: var(--su-text-color-muted);
+  font-size: 12.5px;
+}
+
+.schema-mobile-batch-count strong {
+  color: var(--el-color-primary);
+  font-size: 14px;
+}
+
+.schema-mobile-batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schema-batch-slide-enter-active,
+.schema-batch-slide-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.schema-batch-slide-enter-from,
+.schema-batch-slide-leave-to {
+  transform: translateY(16px);
+  opacity: 0;
+}
+
+@media (max-width: 768px) {
+  .schema-page-header {
+    flex-direction: column;
+    gap: var(--su-space-3);
+  }
+
+  .header-right {
+    width: 100%;
+  }
+
+  .schema-page-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .schema-toolbar-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .schema-page-pagination {
+    justify-content: center;
+  }
+
+  .schema-search-summary {
+    align-items: flex-start;
+  }
 }

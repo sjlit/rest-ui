@@ -449,7 +449,8 @@ interface Action {
   name: string
   label: string
   type?: ButtonType     // Element Plus 按钮类型：primary | success | danger | warning | info | default
-  icon?: string
+  icon?: string | Component // 组件图标会渲染成图标按钮（或文字按钮左侧图标）
+  display?: 'auto' | 'icon' | 'button' // auto：有组件 icon 时图标按钮；button：文字按钮
   round?: boolean
   size?: ComponentSize  // Element Plus 尺寸：large | default | small
   permission?: string   // 所需权限标识
@@ -632,6 +633,18 @@ import { clearSearchModel } from '@sjlit/rest-ui'
 const cleanQuery = clearSearchModel(searchModel, schemas)
 ```
 
+### buildActiveFilters
+
+把已提交的搜索模型展开成可展示的条件 chips。dropdown 会映射成 label，
+日期区间和 multiSelect 数组会按格式拼接。
+
+```typescript
+import { buildActiveFilters } from '@sjlit/rest-ui'
+
+const filters = buildActiveFilters(searchModel, schemas, (key) => key)
+// [{ column: 'status', label: '状态：启用', value: '启用' }]
+```
+
 ---
 
 ## 组件 API
@@ -647,20 +660,37 @@ const cleanQuery = clearSearchModel(searchModel, schemas)
 | `module` | `string` | - | 模块名 |
 | `table` | `string` | - | 表名 |
 | `title` | `string` | `''` | 页面标题 |
+| `subtitle` | `string` | `''` | 页面副标题 |
 | `apiPrefix` | `string` | `''` | API 前缀，默认使用全局配置 |
 | `config` | `Partial<CRUDOptions>` | `{}` | CRUD 配置覆盖（当前仅使用 `schemas` 预加载） |
 | `size` | `string` | - | 预留字段，当前未生效 |
-| `formMode` | `'drawer' \| 'dialog'` | `'dialog'` | 表单弹窗模式 |
+| `formMode` | `'drawer' \| 'dialog'` | `'drawer'` | 表单弹窗模式 |
 | `showHeader` | `boolean` | `true` | 是否显示头部 |
 | `showSearch` | `boolean` | `true` | 是否显示搜索栏 |
 | `showToolbar` | `boolean` | `true` | 是否显示工具栏 |
 | `showPagination` | `boolean` | `true` | 是否显示分页 |
+| `showPageSize` | `boolean` | `true` | 是否显示每页条数选择器 |
+| `showJumper` | `boolean` | `true` | 是否显示跳页输入框 |
+| `showDensity` | `boolean` | `true` | 是否显示表格密度切换 |
+| `showColumnSettings` | `boolean` | `true` | 是否显示列显示/隐藏设置 |
+| `searchCollapsible` | `boolean` | `true` | 搜索区是否可折叠 |
+| `defaultSearchCollapsed` | `boolean` | `true` | 初始是否折叠搜索区 |
+| `collapseSearchOnSearch` | `boolean` | `true` | 搜索完成后是否自动收起 |
+| `showExport` | `boolean` | `true` | 是否显示默认导出按钮 |
+| `showRefresh` | `boolean` | `true` | 是否显示默认刷新按钮 |
+| `showBatchDelete` | `boolean` | `true` | 是否显示默认批量删除 |
+| `storageKey` | `string` | `module/table` | 列显示/密度持久化 key |
+| `tableHeight` | `number \| string` | `''` | 表格最大高度（px；显式设置后覆盖自动高度） |
+| `autoTableHeight` | `boolean` | `true` | 根据视口自动计算表格高度（表头吸顶、分页可见） |
+| `tableHeightOffset` | `number` | `500` | 自动高度的页面 chrome 预留像素 |
+| `actionsWidth` | `number \| string` | 自动 | 操作列宽度 |
 | `readonly` | `boolean` | `false` | 只读模式（隐藏编辑/删除/创建按钮） |
 | `autoFetch` | `boolean` | `true` | 初始化时是否自动加载数据 |
+| `headerActions` | `Action[]` | `[]` | 追加/覆盖页头操作（默认导出、刷新） |
 | `rowActions` | `Action[]` | `[]` | 自定义行操作按钮 |
-| `batchActions` | `Action[]` | `[]` | 自定义批量操作按钮 |
+| `batchActions` | `Action[]` | `[]` | 自定义批量操作按钮（默认批量删除） |
 | `formActions` | `Action[]` | `[]` | 自定义表单操作按钮 |
-| `searchActions` | `Action[]` | `[]` | 自定义搜索操作按钮 |
+| `searchActions` | `Action[]` | `[]` | 自定义搜索操作按钮（自动追加重置） |
 | `defaultSort` | `string` | `''` | 默认排序字段，前缀 `-` 表示降序 |
 | `presetQuery` | `Record<string, any>` | `{}` | 预设查询参数 |
 | `gridProps` | `Record<string, any>` | `{}` | 传递给 SchemaGrid 的额外属性 |
@@ -681,6 +711,7 @@ const cleanQuery = clearSearchModel(searchModel, schemas)
 | `crudform` | `{ model, schema }` | 自定义表单字段 |
 | `headerleft` | - | 自定义头部左侧 |
 | `headerright` | - | 自定义头部右侧 |
+| `toolbarright` | - | 工具条右侧（密度/列设置之前） |
 
 #### 使用示例
 
@@ -742,15 +773,28 @@ function onReady(crud: CRUD) {
 | `loading` | `boolean` | `false` | 加载状态 |
 | `size` | `string` | - | 预留字段，当前未生效 |
 | `title` | `string` | - | 页面标题 |
+| `subtitle` | `string` | `''` | 页面副标题 |
 | `formMode` | `'drawer' \| 'dialog'` | `'dialog'` | 表单弹窗模式 |
 | `showHeader` | `boolean` | `true` | 是否显示头部 |
 | `showSearch` | `boolean` | `true` | 是否显示搜索栏 |
 | `showToolbar` | `boolean` | `true` | 是否显示工具栏 |
 | `showPagination` | `boolean` | `true` | 是否显示分页 |
 | `showPageSize` | `boolean` | `true` | 是否显示每页条数选择器 |
+| `showJumper` | `boolean` | `true` | 是否显示跳页输入框 |
+| `showDensity` | `boolean` | `true` | 是否显示表格密度切换 |
+| `showColumnSettings` | `boolean` | `true` | 是否显示列显示/隐藏设置 |
+| `searchCollapsible` | `boolean` | `true` | 搜索区是否可折叠 |
+| `defaultSearchCollapsed` | `boolean` | `true` | 初始是否折叠搜索区 |
+| `collapseSearchOnSearch` | `boolean` | `true` | 搜索完成后是否自动收起 |
+| `storageKey` | `string` | `''` | 列显示/密度持久化 key（为空则不持久化） |
+| `tableHeight` | `number \| string` | `''` | 表格最大高度（px；设置后表头吸顶） |
+| `autoTableHeight` | `boolean` | `false` | 根据视口自动计算表格高度 |
+| `tableHeightOffset` | `number` | `500` | 自动高度的页面 chrome 预留像素 |
+| `actionsWidth` | `number \| string` | 自动 | 操作列宽度 |
 | `pageSizes` | `number[]` | `[10, 15, 30, 50, 100]` | 每页条数候选值 |
 | `readonly` | `boolean` | `false` | 只读模式 |
-| `searchActions` | `Action[]` | `[]` | 搜索操作按钮 |
+| `headerActions` | `Action[]` | `[]` | 页头操作按钮 |
+| `searchActions` | `Action[]` | `[]` | 搜索操作按钮（自动追加重置） |
 | `rowActions` | `Action[]` | `[]` | 行操作按钮 |
 | `batchActions` | `Action[]` | `[]` | 批量操作按钮 |
 | `formActions` | `Action[]` | `[]` | 表单操作按钮 |
@@ -773,7 +817,7 @@ function onReady(crud: CRUD) {
 
 #### Slots
 
-与 `SchemaViewer` 相同：`searchform`、`gridview`、`crudform`、`headerleft`、`headerright`。
+与 `SchemaViewer` 相同：`searchform`、`gridview`、`crudform`、`headerleft`、`headerright`、`toolbarright`。
 
 #### 使用示例
 
@@ -797,7 +841,7 @@ function onReady(crud: CRUD) {
 
 ### SchemaGrid
 
-响应式数据表格组件，桌面端使用 `el-table`，移动端（< 768px）自动切换为折叠面板视图。
+响应式数据表格组件，桌面端使用 `el-table`，移动端（< 768px）自动切换为折叠卡片视图（带选中态和底部批量操作条）。
 
 #### Props
 
@@ -809,8 +853,13 @@ function onReady(crud: CRUD) {
 | `size` | `ComponentSize` | - | `el-table` 尺寸：`large` \| `default` \| `small` |
 | `selection` | `boolean` | `true` | 是否显示多选列 |
 | `actions` | `Action[]` | `[]` | 行操作按钮 |
+| `actionsLabel` | `string` | `'操作'` | 操作列表头 |
+| `actionsWidth` | `number \| string` | 自动 | 操作列宽度 |
+| `rowKey` | `string` | `''` | 行主键；设置后跨页保留勾选 |
+| `tableHeight` | `number \| string` | `''` | 表格最大高度（表头吸顶） |
+| `emptyText` | `string` | `'暂无数据'` | 空态文案 |
 | `gridProps` | `Record<string, any>` | `{}` | 传递给 `el-table` 的属性 |
-| `responsive` | `boolean` | `true` | 是否启用响应式 |
+| `responsive` | `boolean` | `true` | 是否启用响应式（移动端卡片） |
 | `loading` | `boolean` | `false` | 加载状态 |
 
 #### Events
@@ -843,7 +892,7 @@ Schema 驱动的表单组件，支持网格布局、行内布局、响应式断�
 | `labelWidth` | `string` | `''` | 标签宽度 |
 | `inline` | `boolean` | `false` | 行内表单模式 |
 | `grid` | `boolean` | `false` | 网格布局模式 |
-| `gridCols` | `number` | `0` | 网格列数（0 表示自动） |
+| `gridCols` | `number` | `0` | 网格列宽（12 表示两列；< 480px 自动单列） |
 | `actions` | `Action[]` | `[]` | 表单操作按钮 |
 | `autoSubmit` | `boolean` | `false` | 挂载后自动提交 |
 
@@ -863,7 +912,8 @@ Schema 驱动的表单组件，支持网格布局、行内布局、响应式断�
 
 | 方法 | 返回 | 说明 |
 |------|------|------|
-| `submit` | `Promise<Model>` | 手动触发提交和验证 |
+| `submit` | `Promise<Model>` | 手动触发提交和验证（只返回编码后的 model，不执行 action） |
+| `runAction(action)` | `Promise<void>` | 执行“校验 + encode + action”完整链路 |
 
 ---
 
@@ -994,6 +1044,18 @@ Schema 加载 URI：
 
 ### 批量操作
 
+`SchemaViewer` 默认注入“批量删除”（只读页面除外），会先弹确认框，再调用
+`CRUD.deleteModels()` 并刷新列表。可以用 `:show-batch-delete="false"` 关闭。
+
+```vue
+<template>
+  <!-- 只保留默认批量删除 -->
+  <SchemaViewer module="user" table="user" />
+</template>
+```
+
+追加自定义批量动作：
+
 ```vue
 <script setup lang="ts">
 import { SchemaViewer } from '@sjlit/rest-ui'
@@ -1001,18 +1063,11 @@ import type { Action } from '@sjlit/rest-ui'
 
 const batchActions: Action[] = [
   {
-    name: 'batchDelete',
-    label: '批量删除',
-    type: 'danger',
-    callback: (selections) => {
-      console.log('Batch delete:', selections)
-    },
-  },
-  {
-    name: 'batchExport',
-    label: '批量导出',
-    callback: (selections) => {
-      console.log('Batch export:', selections)
+    name: 'batchEnable',
+    label: '批量启用',
+    type: 'success',
+    asyncCallback: async (selections) => {
+      console.log('Batch enable:', selections)
     },
   },
 ]
